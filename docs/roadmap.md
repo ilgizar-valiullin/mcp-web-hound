@@ -70,7 +70,7 @@ Specialized search modes and production-ready hardening.
 - [x] GitLab-specific search (GitLab API, projects/issues/MRs/blobs)
 - [x] Docs-specific search — covered by `intent: "docs"` + reranker, separate tool not needed
 - [x] Intent routing — not needed, agent selects intent explicitly
-- [x] Advanced ranking — not needed: time-based limits on DDG/Bing make static order optimal
+- [ ] Advanced ranking: learning-to-rank based on agent feedback
 - [ ] Provider health scoring (composite: latency + error rate + quality)
 - [x] Provider: Exa adapter
 - [x] Provider: Firecrawl adapter
