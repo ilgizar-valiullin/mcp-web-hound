@@ -6,7 +6,7 @@
 
 | Tool | Purpose |
 |------|---------|
-| `search` | Universal web search with caching, reranking, and fallback across 8 providers |
+| `search` | Universal web search with caching, reranking, and fallback across 6 providers |
 | `github_search` | Search GitHub repos, code, issues, and users |
 | `gitlab_search` | Search GitLab projects, issues, MRs, and code blobs |
 | `status` | Server diagnostics, provider health, budget state |
@@ -30,7 +30,6 @@ Copy `.env.example` to `.env` and set your API keys. No keys are required — Du
 |----------|-------------|------|------------|
 | DuckDuckGo | No | 1 | 10 req/min |
 | Bing | No | 1 | — |
-
 | Brave | `BRAVE_API_KEY` | 2 | 2000/month |
 | Tavily | `TAVILY_API_KEY` | 2 | 1000/month |
 | Exa | `EXA_API_KEY` | 3 | Trial |
