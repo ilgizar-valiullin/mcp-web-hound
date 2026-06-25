@@ -10,7 +10,6 @@ export const SearchRequestSchema = z.object({
   query: z.string().min(1, "Query cannot be empty"),
   intent: z.enum(["web", "docs", "github", "news"]).default("web"),
   freshness: z.enum(["any", "day", "week", "month"]).default("any"),
-  max_results: z.number().int().min(1).max(30).default(10),
   include_content: z.boolean().default(false),
 });
 
@@ -149,20 +148,16 @@ export const ConfigSchema = z.object({
   // Providers — Brave (API key)
   BRAVE_API_KEY: z.string().optional(),
   BRAVE_DAILY_LIMIT: z.number().or(z.string().transform(Number)).default(60),
-  BRAVE_MAX_RESULTS: z.number().or(z.string().transform(Number)).default(10),
 
   // Providers — Tavily (API key)
   TAVILY_API_KEY: z.string().optional(),
   TAVILY_DAILY_LIMIT: z.number().or(z.string().transform(Number)).default(30),
-  TAVILY_MAX_RESULTS: z.number().or(z.string().transform(Number)).default(10),
 
   // Providers — Exa (API key, trial 1000)
   EXA_API_KEY: z.string().optional(),
-  EXA_MAX_RESULTS: z.number().or(z.string().transform(Number)).default(10),
 
   // Providers — Firecrawl (API key, trial 500 credits)
   FIRECRAWL_API_KEY: z.string().optional(),
-  FIRECRAWL_MAX_RESULTS: z.number().or(z.string().transform(Number)).default(10),
 
   // GitHub Search API (optional, without token: 60 req/hr)
   GITHUB_TOKEN: z.string().optional(),

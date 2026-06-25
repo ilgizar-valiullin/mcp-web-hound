@@ -9,7 +9,6 @@ describe('SearchRequestSchema', () => {
     expect(result.query).toBe('react tutorial');
     expect(result.intent).toBe('web'); // default
     expect(result.freshness).toBe('any'); // default
-    expect(result.max_results).toBe(10); // default
     expect(result.include_content).toBe(false); // default
   });
 
@@ -18,7 +17,6 @@ describe('SearchRequestSchema', () => {
       query: 'github api docs',
       intent: 'docs',
       freshness: 'month',
-      max_results: 20,
       include_content: true,
     };
     const result = SearchRequestSchema.parse(data);
@@ -30,10 +28,7 @@ describe('SearchRequestSchema', () => {
     expect(() => SearchRequestSchema.parse({ query: '' })).toThrow();
   });
 
-  it('should throw on invalid max_results', () => {
-    expect(() => SearchRequestSchema.parse({ query: 'test', max_results: 0 })).toThrow();
-    expect(() => SearchRequestSchema.parse({ query: 'test', max_results: 31 })).toThrow();
-  });
+
 });
 
 describe('ConfigSchema', () => {
@@ -94,15 +89,11 @@ describe('ConfigSchema', () => {
     expect(result.CACHE_TTL_MINUTES).toBe(1440);
   });
 
-  it('should have correct defaults for per-provider max results', () => {
+  it('should have correct defaults for DDG and BING pagination', () => {
     const result = ConfigSchema.parse({});
     expect(result.DDG_RESULTS_PER_PAGE).toBe(10);
     expect(result.DDG_MAX_PAGES).toBe(2);
     expect(result.BING_RESULTS_PER_PAGE).toBe(10);
-    expect(result.BRAVE_MAX_RESULTS).toBe(10);
-    expect(result.TAVILY_MAX_RESULTS).toBe(10);
-    expect(result.EXA_MAX_RESULTS).toBe(10);
-    expect(result.FIRECRAWL_MAX_RESULTS).toBe(10);
   });
 
   it('should parse PROVIDER_EXECUTION_MODE from string', () => {

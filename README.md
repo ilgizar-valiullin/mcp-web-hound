@@ -44,7 +44,6 @@ search({
   query: string,
   intent?: "web" | "docs" | "github" | "news",
   freshness?: "any" | "day" | "week" | "month",
-  max_results?: number,       // default 10, max 30
   include_content?: boolean   // fetch page content as markdown
 })
 ```
@@ -59,7 +58,6 @@ github_search({
   type?: "repositories" | "code" | "issues" | "users",
   language?: string,
   stars?: string,             // e.g. ">1000", "500..5000"
-  per_page?: number,          // default 15, max 100
   page?: number
 })
 ```

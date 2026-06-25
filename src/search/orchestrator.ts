@@ -177,7 +177,7 @@ export class Orchestrator {
       this.router.search(normalized, {
         intent: request.intent,
         freshness: request.freshness,
-        max_results: request.max_results * 2,
+        max_results: 20,
       }),
       new Promise<never>((_, reject) => {
         searchTimeout.onabort = () => reject(new Error(`Search timed out after ${config.SEARCH_TIMEOUT_MS}ms`));

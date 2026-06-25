@@ -8,7 +8,6 @@ const GitHubSearchSchema = z.object({
   type: z.enum(['repositories', 'code', 'issues', 'users']).default('repositories'),
   language: z.string().optional(),
   stars: z.string().optional(),
-  per_page: z.number().int().min(1).max(100).default(15),
   page: z.number().int().min(1).default(1),
 });
 
@@ -63,14 +62,14 @@ export function registerGitHubSearchTool(server: McpServer): void {
     },
     async (args) => {
       try {
-        const { query, type: searchType, language, stars, per_page, page } = GitHubSearchSchema.parse(args);
+        const { query, type: searchType, language, stars, page } = GitHubSearchSchema.parse(args);
         const q = buildQuery(query, language, stars);
 
         logger.info({ query: q, type: searchType }, 'GitHub search requested');
 
         const url = new URL(`https://api.github.com/search/${searchType}`);
         url.searchParams.set('q', q);
-        url.searchParams.set('per_page', String(per_page));
+        url.searchParams.set('per_page', '15');
         url.searchParams.set('page', String(page));
 
         const headers: Record<string, string> = {
@@ -145,7 +144,6 @@ export function registerGitHubSearchTool(server: McpServer): void {
                 {
                   total_count: body.total_count,
                   page,
-                  per_page,
                   rate_limit_remaining: remaining,
                   results,
                 },
