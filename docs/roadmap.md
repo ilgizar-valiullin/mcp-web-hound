@@ -80,7 +80,7 @@ Specialized search modes and production-ready hardening.
 - [x] Search timeout, cached TTL, max results after rerank
 - [x] Browser User-Agent for fetch layer
 - [x] robots.txt — not needed: not a crawler, budget limits already protect sites
-- [ ] Cache analytics (hit rate, popular queries)
+- [x] Cache analytics — not needed: agent doesn't use cache internals, status tool covers basics
 - [x] DB migration system
 - [x] Graceful shutdown (finish in-flight, close DB)
 - [ ] Optional vector index (for large cached query volumes)
