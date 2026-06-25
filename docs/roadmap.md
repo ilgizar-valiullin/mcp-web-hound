@@ -68,7 +68,7 @@ Specialized search modes and production-ready hardening.
 
 - [x] GitHub-specific search (GitHub API, repos/code/issues/users)
 - [x] GitLab-specific search (GitLab API, projects/issues/MRs/blobs)
-- [ ] Docs-specific search (prioritize readthedocs, docs.*, MDN)
+- [x] Docs-specific search — covered by `intent: "docs"` + reranker, separate tool not needed
 - [ ] Intent routing: automatic intent detection by query
 - [ ] Advanced ranking: learning-to-rank based on agent feedback
 - [ ] Provider health scoring (composite: latency + error rate + quality)
