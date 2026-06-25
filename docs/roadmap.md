@@ -87,7 +87,7 @@ Specialized search modes and production-ready hardening.
 - [x] Comprehensive test suite
 - [ ] Performance benchmarks
 - [ ] Docker image
-- [ ] Documentation: deployment guide
+- [x] Documentation: deployment guide (OpenCode)
 - [x] CI workflow (Node 20/22, npm ci, build, test)
 - [x] GitLab tool hidden when token absent
 
