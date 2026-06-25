@@ -1,0 +1,46 @@
+{
+  "name": "search-mcp",
+  "version": "0.1.0",
+  "description": "MCP Search Server — unified search, GitHub search, and GitLab search tools with caching, reranking, and rate limits",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/",
+    "clean": "rimraf dist"
+  },
+  "keywords": ["mcp", "search", "ai", "agent", "searxng", "duckduckgo"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "better-sqlite3": "latest",
+    "zod": "latest",
+    "@mozilla/readability": "latest",
+    "linkedom": "latest",
+    "turndown": "latest",
+    "turndown-plugin-gfm": "latest",
+    "dotenv": "latest",
+    "pino": "latest"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/node": "^20.0.0",
+    "@types/better-sqlite3": "latest",
+    "@types/turndown": "latest",
+    "tsx": "latest",
+    "vitest": "latest",
+    "rimraf": "latest",
+    "eslint": "latest"
+  },
+  "optionalDependencies": {
+    "sqlite-vec": "latest",
+    "@xenova/transformers": "latest"
+  }
+}
