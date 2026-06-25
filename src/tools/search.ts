@@ -1,9 +1,11 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SearchRequestSchema } from '../utils/types.js';
+import { config } from '../utils/config.js';
 import { Orchestrator } from '../search/orchestrator.js';
+import { IntentClassifier } from '../search/intent-classifier.js';
 import { logger } from '../utils/logger.js';
 
-export function registerSearchTool(server: McpServer, orchestrator: Orchestrator): void {
+export function registerSearchTool(server: McpServer, orchestrator: Orchestrator, classifier: IntentClassifier): void {
   server.registerTool(
     'search',
     {
@@ -13,10 +15,13 @@ export function registerSearchTool(server: McpServer, orchestrator: Orchestrator
     async (args) => {
       try {
         const request = SearchRequestSchema.parse(args);
+        const intent = config.INTENT_CLASSIFICATION_ENABLED
+          ? await classifier.classify(request.query)
+          : request.intent;
 
-        logger.info({ query: request.query, intent: request.intent }, 'Search requested');
+        logger.info({ query: request.query, intent, classification: config.INTENT_CLASSIFICATION_ENABLED }, 'Search requested');
 
-        const response = await orchestrator.search(request);
+        const response = await orchestrator.search({ ...request, intent });
 
         return {
           content: [

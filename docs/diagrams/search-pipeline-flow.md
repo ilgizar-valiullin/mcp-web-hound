@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart TD
-    A["Agent: search(query, intent, freshness, max_results, include_content)"] --> B[MCP Transport Layer]
+    A["Agent: search(query, intent?, freshness?, include_content?)"] --> B[MCP Transport Layer]
     B --> C[Validate Input - zod]
     C --> D[Budget Manager: checkBudget]
     D -->|Exceeded| D_ERR["Return error: BUDGET_EXCEEDED"]
@@ -42,7 +42,7 @@ flowchart TD
     S --> T[Reranker]
     T --> U["Score = w1*semantic + w2*domain + w3*freshness + w4*position"]
     U --> V[Sort by final_score DESC]
-    V --> W[Truncate to max_results]
+    V --> W[Truncate to MAX_RESULTS_AFTER_RERANK]
 
     W --> X{include_content?}
     X -->|No| Y[Save to caches]

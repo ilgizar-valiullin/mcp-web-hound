@@ -48,10 +48,10 @@ export class EmbeddingService {
     }
   }
 
-  async embed(text: string): Promise<number[]> {
+  async embed(text: string, prefix: string = 'query'): Promise<number[]> {
     await this.ensureLoaded();
 
-    const prefixed = `query: ${text}`;
+    const prefixed = `${prefix}: ${text}`;
     const result = await this.pipeline!(prefixed, {
       pooling: 'mean',
       normalize: true,
@@ -60,10 +60,10 @@ export class EmbeddingService {
     return Array.from(result.data);
   }
 
-  async embedBatch(texts: string[]): Promise<number[][]> {
+  async embedBatch(texts: string[], prefix: string = 'query'): Promise<number[][]> {
     await this.ensureLoaded();
 
-    const prefixed = texts.map((t) => `query: ${t}`);
+    const prefixed = texts.map((t) => `${prefix}: ${t}`);
     const result = await this.pipeline!(prefixed, {
       pooling: 'mean',
       normalize: true,

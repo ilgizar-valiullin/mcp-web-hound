@@ -13,6 +13,7 @@ import { registerSearchTool } from './tools/search.js';
 import { registerStatusTool } from './tools/status.js';
 import { registerGitHubSearchTool } from './tools/github-search.js';
 import { registerGitLabSearchTool } from './tools/gitlab-search.js';
+import { IntentClassifier } from './search/intent-classifier.js';
 
 const SERVER_NAME = 'search-mcp';
 const SERVER_VERSION = '0.1.0';
@@ -48,8 +49,9 @@ async function main(): Promise<void> {
   }
 
   const orchestrator = new Orchestrator(budgetManager, cache, router, fetcher, semanticCache, embeddingService);
+  const classifier = new IntentClassifier(embeddingService);
 
-  registerSearchTool(server, orchestrator);
+  registerSearchTool(server, orchestrator, classifier);
   registerStatusTool(server, cache, router, budgetManager);
   registerGitHubSearchTool(server);
 

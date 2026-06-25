@@ -196,6 +196,10 @@ export const ConfigSchema = z.object({
   EMBEDDING_DIMENSION: z.number().or(z.string().transform(Number)).default(384),
   SEMANTIC_THRESHOLD: z.number().or(z.string().transform(Number)).default(0.92),
 
+  // Intent classification — server-side auto-classifies query intent (github/docs/news/web)
+  // when enabled. When disabled, the agent provides `intent` in the search request.
+  INTENT_CLASSIFICATION_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true),
+
   // Fetch
   FETCH_TIMEOUT_MS: z.number().or(z.string().transform(Number)).default(10000),
   FETCH_MAX_RETRIES: z.number().or(z.string().transform(Number)).default(2),

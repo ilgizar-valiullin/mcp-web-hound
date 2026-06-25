@@ -109,4 +109,14 @@ describe('ConfigSchema', () => {
     const result = ConfigSchema.parse({ MAX_PARALLEL_PROVIDERS: '3' });
     expect(result.MAX_PARALLEL_PROVIDERS).toBe(3);
   });
+
+  it('should have correct default for INTENT_CLASSIFICATION_ENABLED', () => {
+    const result = ConfigSchema.parse({});
+    expect(result.INTENT_CLASSIFICATION_ENABLED).toBe(true);
+  });
+
+  it('should parse INTENT_CLASSIFICATION_ENABLED from string', () => {
+    const result = ConfigSchema.parse({ INTENT_CLASSIFICATION_ENABLED: 'false' });
+    expect(result.INTENT_CLASSIFICATION_ENABLED).toBe(false);
+  });
 });

@@ -35,6 +35,17 @@ Copy `.env.example` to `.env` and set your API keys. No keys are required — Du
 | Exa | `EXA_API_KEY` | 3 | Trial |
 | Firecrawl | `FIRECRAWL_API_KEY` | 3 | Trial |
 
+## Query Formats
+
+| Tool | Pattern | Example |
+|------|---------|---------|
+| `search` | General web search | `typescript tutorial`, `how to install docker` |
+| `search` | GitHub-oriented | `repo:vercel/next.js`, `stars:>1000 language:rust` |
+| `search` | Docs-oriented | `express api reference`, `docker compose guide` |
+| `search` | News-oriented | `react 19 release notes`, `latest ai news` |
+| `github_search` | Native GitHub search syntax | `repo:org/name`, `user:vercel`, `language:typescript` |
+| `gitlab_search` | Native GitLab search syntax | `project:org/name`, scope filter via `type` param |
+
 ## Tool Reference
 
 ### `search`
@@ -42,13 +53,15 @@ Copy `.env.example` to `.env` and set your API keys. No keys are required — Du
 ```typescript
 search({
   query: string,
-  intent?: "web" | "docs" | "github" | "news",
   freshness?: "any" | "day" | "week" | "month",
   include_content?: boolean   // fetch page content as markdown
 })
 ```
 
 Returns merged results from the first 2 healthy providers (parallel), deduplicated and reranked by relevance.
+
+Intent classification (`INTENT_CLASSIFICATION_ENABLED=true` by default): the server auto-detects
+query intent (github / docs / news / web) via embedding zero-shot with confidence + ambiguity gates.
 
 ### `github_search`
 
@@ -70,7 +83,6 @@ Rate limit: 60 req/hr without token, 5000 req/hr with `GITHUB_TOKEN`.
 gitlab_search({
   query: string,
   scope?: "projects" | "issues" | "merge_requests" | "blobs",
-  per_page?: number,          // default 10, max 100
   page?: number
 })
 ```

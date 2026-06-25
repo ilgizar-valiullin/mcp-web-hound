@@ -6,7 +6,6 @@ import { logger } from '../utils/logger.js';
 const GitLabSearchSchema = z.object({
   query: z.string().min(1, 'Query cannot be empty'),
   scope: z.enum(['projects', 'issues', 'merge_requests', 'blobs']).default('projects'),
-  per_page: z.number().int().min(1).max(100).default(10),
   page: z.number().int().min(1).default(1),
 });
 
@@ -60,14 +59,14 @@ export function registerGitLabSearchTool(server: McpServer): void {
     },
     async (args) => {
       try {
-        const { query, scope, per_page, page } = GitLabSearchSchema.parse(args);
+        const { query, scope, page } = GitLabSearchSchema.parse(args);
 
         logger.info({ query, scope }, 'GitLab search requested');
 
         const url = new URL('https://gitlab.com/api/v4/search');
         url.searchParams.set('scope', scope);
         url.searchParams.set('search', query);
-        url.searchParams.set('per_page', String(per_page));
+        url.searchParams.set('per_page', '10');
         url.searchParams.set('page', String(page));
 
         const headers: Record<string, string> = {
@@ -136,7 +135,6 @@ export function registerGitLabSearchTool(server: McpServer): void {
                 {
                   total: body.length,
                   page,
-                  per_page,
                   results,
                 },
                 null,

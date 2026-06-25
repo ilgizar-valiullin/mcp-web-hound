@@ -99,6 +99,7 @@ All settings via `.env` file or environment variables.
 | `EMBEDDING_MODEL` | `multilingual-e5-small` | Embedding model name |
 | `EMBEDDING_DIMENSION` | `384` | Vector dimension |
 | `SEMANTIC_THRESHOLD` | `0.92` | Similarity threshold for cache hit |
+| `INTENT_CLASSIFICATION_ENABLED` | `true` | Auto-classify query intent (github/docs/news/web) via embedding zero-shot with confidence + ambiguity gates. When disabled, agent controls `intent` |
 
 ### Fetch Layer
 

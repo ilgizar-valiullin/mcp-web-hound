@@ -179,7 +179,6 @@ interface SearchRequest {
   query: string;
   intent: "web" | "docs" | "github" | "news";
   freshness: "any" | "day" | "week" | "month";
-  max_results: number;
   include_content: boolean;
 }
 
@@ -222,7 +221,7 @@ interface SearchProvider {
 interface ProviderOptions {
   intent: string;
   freshness: string;
-  max_results: number;
+  max_results: number;  // internal, set by orchestrator
 }
 
 interface ProviderResult {
