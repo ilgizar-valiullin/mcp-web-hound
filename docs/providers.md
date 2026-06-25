@@ -1,27 +1,27 @@
-# Поисковые провайдеры
+# Search Providers
 
-## Обзор
+## Overview
 
-Провайдеры работают с маршрутизатором, который выбирает первые 2 healthy-провайдера и зовёт их параллельно. Результаты агрегируются, дедуплицируются и реранжируются. При недоступности — fallback на следующие.
+Providers work with the router, which selects the first 2 healthy providers and calls them in parallel. Results are aggregated, deduplicated, and reranked. If a provider is unavailable — fallback to the next ones.
 
-## Tier 1 — Основные (бесплатные, scraping)
+## Tier 1 — Core (free, scraping)
 
 ### DuckDuckGo
 
-| Параметр | Значение |
-|----------|----------|
-| Тип | HTML scraping |
+| Parameter | Value |
+|-----------|-------|
+| Type | HTML scraping |
 | API | POST `html.duckduckgo.com/html/` |
-| Лимиты | 10 req/min (IP-based) |
-| Ключ | Не нужен |
+| Limits | 10 req/min (IP-based) |
+| Key | Not required |
 | Intents | web, docs |
 
-**Особенности:**
-- Бесплатный без регистрации
-- 10 результатов на страницу, до 2 страниц = 20 сырых результатов
-- Rate limit с задержкой между запросами
+**Features:**
+- Free, no registration
+- 10 results per page, up to 2 pages = 20 raw results
+- Rate limit with delay between requests
 
-**Конфигурация:**
+**Configuration:**
 ```env
 DDG_ENABLED=true
 DDG_DELAY_MS=1000
@@ -32,20 +32,20 @@ DDG_MAX_PER_MINUTE=10
 
 ### Bing
 
-| Параметр | Значение |
-|----------|----------|
-| Тип | HTML scraping |
+| Parameter | Value |
+|-----------|-------|
+| Type | HTML scraping |
 | API | GET `bing.com/search` |
-| Лимиты | Неявные (IP-based) |
-| Ключ | Не нужен |
+| Limits | Implicit (IP-based) |
+| Key | Not required |
 | Intents | web |
 
-**Особенности:**
-- Бесплатный без регистрации
-- Парсинг `b_algo` блоков из HTML выдачи
-- Другой индекс, чем DDG — расширяет покрытие
+**Features:**
+- Free, no registration
+- Parses `b_algo` blocks from HTML results page
+- Different index from DDG — expands coverage
 
-**Конфигурация:**
+**Configuration:**
 ```env
 BING_ENABLED=true
 ```
@@ -54,20 +54,20 @@ BING_ENABLED=true
 
 ### SearXNG
 
-| Параметр | Значение |
-|----------|----------|
-| Тип | Self-hosted метапоисковик |
+| Parameter | Value |
+|-----------|-------|
+| Type | Self-hosted metasearch engine |
 | API | REST JSON API |
-| Лимиты | Без ограничений (свой сервер) |
-| Ключ | Не нужен |
+| Limits | Unlimited (your own server) |
+| Key | Not required |
 | Intents | web, docs, news |
 
-**Особенности:**
-- Полный контроль, нет rate limits
-- Агрегирует Google, Bing, DuckDuckGo и др.
-- Требует развёрнутый инстанс
+**Features:**
+- Full control, no rate limits
+- Aggregates Google, Bing, DuckDuckGo, and others
+- Requires a deployed instance
 
-**Конфигурация:**
+**Configuration:**
 ```env
 SEARXNG_ENABLED=true
 SEARXNG_URL=http://localhost:8888
@@ -76,18 +76,18 @@ SEARXNG_ENGINES=google,bing,duckduckgo,stackoverflow
 
 ---
 
-## Tier 2 — Официальные API (бесплатные лимиты)
+## Tier 2 — Official APIs (free tier)
 
 ### Brave Search API
 
-| Параметр | Значение |
-|----------|----------|
-| Тип | Официальный REST API |
-| Лимиты | 2000 запросов/мес (бесплатно) |
-| Ключ | Требуется (бесплатная регистрация) |
+| Parameter | Value |
+|-----------|-------|
+| Type | Official REST API |
+| Limits | 2000 requests/month (free) |
+| Key | Required (free registration) |
 | Intents | web, docs, news |
 
-**Конфигурация:**
+**Configuration:**
 ```env
 BRAVE_API_KEY=BSA...
 BRAVE_DAILY_LIMIT=60
@@ -97,19 +97,19 @@ BRAVE_DAILY_LIMIT=60
 
 ### Tavily API
 
-| Параметр | Значение |
-|----------|----------|
-| Тип | AI-ориентированный поиск |
-| Лимиты | 1000 запросов/мес (бесплатно) |
-| Ключ | Требуется (бесплатная регистрация) |
+| Parameter | Value |
+|-----------|-------|
+| Type | AI-oriented search |
+| Limits | 1000 requests/month (free) |
+| Key | Required (free registration) |
 | Intents | web, docs |
 
-**Особенности:**
-- Создан специально для AI-агентов
-- Возвращает `content` (извлечённый текст) из коробки
-- Хорошо работает для docs intent
+**Features:**
+- Built specifically for AI agents
+- Returns `content` (extracted text) out of the box
+- Works well for docs intent
 
-**Конфигурация:**
+**Configuration:**
 ```env
 TAVILY_API_KEY=tvly-...
 TAVILY_DAILY_LIMIT=30
@@ -117,15 +117,15 @@ TAVILY_DAILY_LIMIT=30
 
 ---
 
-## Tier 3 — Опциональные
+## Tier 3 — Optional
 
 ### Exa
 
-| Параметр | Значение |
-|----------|----------|
-| Тип | Семантический поиск |
-| Лимиты | 1000 запросов/мес (бесплатно) |
-| Ключ | Требуется |
+| Parameter | Value |
+|-----------|-------|
+| Type | Semantic search |
+| Limits | 1000 requests/month (free) |
+| Key | Required |
 | Intents | web, docs |
 
 ```env
@@ -134,11 +134,11 @@ EXA_API_KEY=...
 
 ### Firecrawl
 
-| Параметр | Значение |
-|----------|----------|
-| Тип | Web scraping + search |
-| Лимиты | 500 credits/мес (бесплатно) |
-| Ключ | Требуется |
+| Parameter | Value |
+|-----------|-------|
+| Type | Web scraping + search |
+| Limits | 500 credits/month (free) |
+| Key | Required |
 | API | `api.firecrawl.dev/v2/search` |
 | Intents | docs |
 
@@ -148,7 +148,7 @@ FIRECRAWL_API_KEY=...
 
 ---
 
-## Provider Router: алгоритм выбора
+## Provider Router: selection algorithm
 
 ```mermaid
 flowchart TD
@@ -158,27 +158,27 @@ flowchart TD
     MERGE --> RERANK["Rerank by relevance score"]
     RERANK --> RETURN["Return top-N to orchestrator"]
     
-    HEALTH -->|Fewer than 2 healthy| FALLBACK["Use what's available"]
+    HEALTH -->|"Fewer than 2 healthy"| FALLBACK["Use what's available"]
     FALLBACK --> PARALLEL
     
-    PARALLEL -->|All failed| FAIL["Return error: all providers failed"]
+    PARALLEL -->|"All failed"| FAIL["Return error: all providers failed"]
 ```
 
-## Routing стратегия
+## Routing Strategy
 
-**Параллельный запрос 2 провайдеров:**
-1. Найти первые 2 healthy провайдера по порядку
-2. Вызвать их параллельно через `Promise.allSettled`
-3. Агрегировать результаты
-4. Реранкер дедуплицирует по нормализованному URL и сортирует
+**Parallel request to 2 providers:**
+1. Find the first 2 healthy providers in order
+2. Call them in parallel via `Promise.allSettled`
+3. Aggregate results
+4. Reranker deduplicates by normalized URL and sorts
 
-**Порядок провайдеров:** DDG → Bing → SearXNG → Brave → Tavily → Exa → Firecrawl
+**Provider order:** DDG → Bing → SearXNG → Brave → Tavily → Exa → Firecrawl
 
-Если один из двух упал — результаты от второго всё равно возвращаются. Если оба упали — ошибка.
+If one of the two fails — results from the other are still returned. If both fail — error.
 
 ## Health Tracking
 
-Каждый провайдер отслеживает:
+Each provider tracks:
 
 ```typescript
 interface ProviderHealth {
@@ -191,7 +191,7 @@ interface ProviderHealth {
 }
 ```
 
-**Провайдер unhealthy если:**
+**Provider is unhealthy if:**
 - `consecutive_errors >= 3`
 
-**Восстановление:** unhealthy-провайдер получает пробную попытку при следующем цикле. Если успешна — восстанавливается.
+**Recovery:** an unhealthy provider gets a trial attempt on the next cycle. If successful — it recovers.

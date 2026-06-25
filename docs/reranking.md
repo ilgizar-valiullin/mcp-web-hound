@@ -1,10 +1,10 @@
-# Реранкинг
+# Reranking
 
-## Обзор
+## Overview
 
-После получения результатов от провайдеров (одного или нескольких) происходит финальный реранкинг. Цель — отсортировать результаты по реальной полезности для агента, а не по позиции в поисковой выдаче.
+After receiving results from providers (one or multiple), final reranking is applied. The goal is to sort results by actual usefulness to the agent, not by raw search engine position.
 
-## Формула скоринга
+## Scoring Formula
 
 ```
 final_score = w1 * semantic_similarity
@@ -13,31 +13,31 @@ final_score = w1 * semantic_similarity
             + w4 * position_score
 ```
 
-### Веса по умолчанию
+### Default Weights
 
-| Фактор | Вес | Описание |
-|--------|-----|----------|
-| `semantic_similarity` | 0.35 | Cosine similarity embedding запроса и snippet |
-| `domain_quality` | 0.30 | Качество домена (предопределённый список) |
-| `freshness_score` | 0.15 | Насколько свежий результат |
-| `position_score` | 0.20 | Позиция в оригинальной выдаче |
+| Factor | Weight | Description |
+|--------|--------|-------------|
+| `semantic_similarity` | 0.35 | Cosine similarity of query embedding and snippet |
+| `domain_quality` | 0.30 | Domain quality (predefined list) |
+| `freshness_score` | 0.15 | How recent the result is |
+| `position_score` | 0.20 | Position in original provider results |
 
-### Адаптация весов по intent
+### Intent-Based Weight Adjustment
 
 | Intent | semantic | domain | freshness | position |
 |--------|----------|--------|-----------|----------|
 | `web` | 0.35 | 0.25 | 0.15 | 0.25 |
-| `docs` | 0.30 | 0.40 | 0.10 | 0.20 |
-| `github` | 0.25 | 0.35 | 0.20 | 0.20 |
-| `news` | 0.20 | 0.15 | 0.45 | 0.20 |
+| `docs` | 0.30 | **0.40** | 0.10 | 0.20 |
+| `github` | 0.25 | **0.35** | 0.20 | 0.20 |
+| `news` | 0.20 | 0.15 | **0.45** | 0.20 |
 
 ---
 
-## Компоненты scoring
+## Scoring Components
 
 ### 1. Semantic Similarity (0.0 – 1.0)
 
-Cosine similarity между embedding запроса и embedding snippet/title результата.
+Cosine similarity between query embedding and result snippet/title embedding.
 
 ```typescript
 function semanticScore(queryEmbedding: number[], resultText: string): number {
@@ -46,21 +46,21 @@ function semanticScore(queryEmbedding: number[], resultText: string): number {
 }
 ```
 
-**В MVP:** Не применяется (нет embeddings). `semantic_similarity = 0.5` для всех.
+**Without embeddings:** `semantic_similarity = 0.5` for all results.
 
 ### 2. Domain Quality (0.0 – 1.0)
 
-Предопределённый scoring доменов, ориентированный на разработку.
+Predefined domain scoring tailored for development.
 
 ```typescript
 const DOMAIN_SCORES: Record<string, number> = {
-  // Tier S — официальные источники
+  // Tier S — official sources
   "github.com":           0.95,
   "docs.github.com":      0.95,
   "developer.mozilla.org": 0.95,
   "tc39.es":              0.90,
 
-  // Tier A — документация
+  // Tier A — documentation
   "readthedocs.io":       0.90,
   "docs.python.org":      0.90,
   "docs.rs":              0.90,
@@ -71,36 +71,36 @@ const DOMAIN_SCORES: Record<string, number> = {
   "vuejs.org":            0.85,
   "angular.dev":          0.85,
   "svelte.dev":           0.85,
-  
-  // Tier B — пакетные менеджеры
+
+  // Tier B — package managers
   "npmjs.com":            0.85,
   "pypi.org":             0.85,
   "crates.io":            0.85,
   "rubygems.org":         0.80,
   "packagist.org":        0.80,
 
-  // Tier C — Q&A и туториалы
+  // Tier C — Q&A and tutorials
   "stackoverflow.com":    0.80,
   "dev.to":               0.70,
   "medium.com":           0.55,
   "hashnode.dev":         0.65,
   "freecodecamp.org":     0.70,
 
-  // Tier D — общие
+  // Tier D — general
   "wikipedia.org":        0.60,
   "w3schools.com":        0.50,
 };
 
-// Для неизвестных доменов: 0.50
-// Для поддоменов: ищем родительский домен
+// Unknown domains: 0.50
+// Subdomains: look up parent domain
 ```
 
-**Паттерны доменов (regex):**
+**Domain patterns (regex):**
 ```typescript
 const DOMAIN_PATTERNS: Array<[RegExp, number]> = [
-  [/^docs\./, 0.85],              // docs.* — любая документация
-  [/^developer\./, 0.85],         // developer.* — dev порталы
-  [/^api\./, 0.80],               // api.* — API документация
+  [/^docs\./, 0.85],              // docs.* — documentation sites
+  [/^developer\./, 0.85],         // developer.* — dev portals
+  [/^api\./, 0.80],               // api.* — API docs
   [/\.readthedocs\.io$/, 0.90],   // *.readthedocs.io
   [/\.github\.io$/, 0.75],        // *.github.io — project pages
 ];
@@ -108,39 +108,39 @@ const DOMAIN_PATTERNS: Array<[RegExp, number]> = [
 
 ### 3. Freshness Score (0.0 – 1.0)
 
-Основан на `published_date` результата. Если дата неизвестна — нейтральный score.
+Based on the result's `published_date`. If unknown — neutral score.
 
 ```typescript
 function freshnessScore(publishedDate: string | null): number {
-  if (!publishedDate) return 0.5;  // Нейтральный
+  if (!publishedDate) return 0.5;  // Neutral
 
   const ageHours = (Date.now() - new Date(publishedDate).getTime()) / 3600000;
 
-  if (ageHours < 24)    return 1.0;   // Последние сутки
-  if (ageHours < 168)   return 0.9;   // Последняя неделя
-  if (ageHours < 720)   return 0.8;   // Последний месяц
-  if (ageHours < 2160)  return 0.7;   // Последние 3 месяца
-  if (ageHours < 8760)  return 0.5;   // Последний год
-  return 0.3;                          // Старше года
+  if (ageHours < 24)    return 1.0;   // Last day
+  if (ageHours < 168)   return 0.9;   // Last week
+  if (ageHours < 720)   return 0.8;   // Last month
+  if (ageHours < 2160)  return 0.7;   // Last 3 months
+  if (ageHours < 8760)  return 0.5;   // Last year
+  return 0.3;                          // Older than a year
 }
 ```
 
 ### 4. Position Score (0.0 – 1.0)
 
-Нормализованная позиция в оригинальной выдаче провайдера.
+Normalized position in the original provider results.
 
 ```typescript
 function positionScore(position: number, totalResults: number): number {
-  // Линейная нормализация: первая позиция = 1.0, последняя ≈ 0.1
+  // Linear normalization: first position = 1.0, last = ~0.1
   return Math.max(0.1, 1.0 - (position / totalResults) * 0.9);
 }
 ```
 
 ---
 
-## Дедупликация
+## Deduplication
 
-Перед реранкингом происходит дедупликация по URL:
+Before reranking, results are deduplicated by URL:
 
 ```typescript
 function deduplicateResults(results: ProviderResult[]): ProviderResult[] {
@@ -148,11 +148,11 @@ function deduplicateResults(results: ProviderResult[]): ProviderResult[] {
 
   for (const result of results) {
     const normalizedUrl = normalizeUrl(result.url);
-    
+
     if (!seen.has(normalizedUrl)) {
       seen.set(normalizedUrl, result);
     } else {
-      // Если дубликат — оставляем с лучшей позицией
+      // Keep result with better (lower) position
       const existing = seen.get(normalizedUrl)!;
       if (result.raw_position < existing.raw_position) {
         seen.set(normalizedUrl, result);
@@ -165,7 +165,7 @@ function deduplicateResults(results: ProviderResult[]): ProviderResult[] {
 
 function normalizeUrl(url: string): string {
   const parsed = new URL(url);
-  // Убираем trailing slash, utm_ параметры, www.
+  // Remove trailing slash, utm_ params, www.
   parsed.hash = "";
   parsed.hostname = parsed.hostname.replace(/^www\./, "");
   for (const key of [...parsed.searchParams.keys()]) {
@@ -177,20 +177,20 @@ function normalizeUrl(url: string): string {
 }
 ```
 
-## Пример
+## Example
 
 ```
-Запрос: "react server components docs"
+Query: "react server components docs"
 Intent: docs
 
-Результаты до реранкинга:
+Results before reranking:
 1. medium.com/...        (position: 1, snippet sim: 0.72)
 2. react.dev/...         (position: 2, snippet sim: 0.91)
 3. github.com/react/...  (position: 3, snippet sim: 0.88)
 4. stackoverflow.com/... (position: 4, snippet sim: 0.65)
 5. dev.to/...            (position: 5, snippet sim: 0.70)
 
-Скоринг (docs intent: semantic=0.30, domain=0.40, freshness=0.10, position=0.20):
+Scoring (docs intent: semantic=0.30, domain=0.40, freshness=0.10, position=0.20):
 
 1. react.dev:        0.30*0.91 + 0.40*0.85 + 0.10*0.8 + 0.20*0.82 = 0.857
 2. github.com:       0.30*0.88 + 0.40*0.95 + 0.10*0.7 + 0.20*0.74 = 0.862
@@ -198,5 +198,5 @@ Intent: docs
 4. medium.com:       0.30*0.72 + 0.40*0.55 + 0.10*0.9 + 0.20*1.00 = 0.626  (was #1!)
 5. dev.to:           0.30*0.70 + 0.40*0.70 + 0.10*0.6 + 0.20*0.38 = 0.626
 
-После реранкинга: github.com → react.dev → stackoverflow → medium → dev.to
+After reranking: github.com → react.dev → stackoverflow → medium → dev.to
 ```

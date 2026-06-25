@@ -10,37 +10,48 @@
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:providers": "vitest run tests/integration/",
+    "test:all": "vitest run tests/ tests/integration/",
     "lint": "eslint src/",
     "clean": "rimraf dist"
   },
-  "keywords": ["mcp", "search", "ai", "agent", "searxng", "duckduckgo"],
+  "keywords": [
+    "mcp",
+    "search",
+    "ai",
+    "agent",
+    "searxng",
+    "duckduckgo"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "latest",
-    "better-sqlite3": "latest",
-    "zod": "latest",
     "@mozilla/readability": "latest",
+    "better-sqlite3": "latest",
+    "dotenv": "latest",
     "linkedom": "latest",
+    "pino": "latest",
     "turndown": "latest",
     "turndown-plugin-gfm": "latest",
-    "dotenv": "latest",
-    "pino": "latest"
+    "zod": "latest"
   },
   "devDependencies": {
-    "typescript": "^5.3.0",
-    "@types/node": "^20.0.0",
     "@types/better-sqlite3": "latest",
+    "@types/node": "^20.0.0",
     "@types/turndown": "latest",
-    "tsx": "latest",
-    "vitest": "latest",
+    "@vitest/coverage-v8": "^4.1.9",
+    "eslint": "latest",
     "rimraf": "latest",
-    "eslint": "latest"
+    "tsx": "latest",
+    "typescript": "^5.3.0",
+    "vitest": "latest"
   },
   "optionalDependencies": {
-    "sqlite-vec": "latest",
-    "@xenova/transformers": "latest"
+    "@xenova/transformers": "latest",
+    "sqlite-vec": "latest"
   }
 }

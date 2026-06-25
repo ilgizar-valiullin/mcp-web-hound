@@ -1,12 +1,12 @@
-# Архитектура Search MCP Server
+# Search MCP Server Architecture
 
-## Обзор Pipeline
+## Pipeline Overview
 
-Каждый вызов `search()` проходит через линейный pipeline:
+Each `search()` call goes through a linear pipeline:
 
 ```mermaid
 flowchart TD
-    A["Agent вызывает search()"] --> B[MCP Transport Layer]
+    A["Agent calls search()"] --> B[MCP Transport Layer]
     B --> C[Budget Manager]
     C -->|Budget exceeded| C_ERR[Return budget error]
     C -->|Budget OK| D[Query Normalizer]
@@ -33,76 +33,76 @@ flowchart TD
     M --> N[Return to Agent]
 ```
 
-## Слои системы
+## System Layers
 
 ### 1. MCP Transport Layer (`src/index.ts`)
 
-Точка входа. Регистрирует 4 инструмента через `@modelcontextprotocol/sdk`: `search`, `github_search`, `gitlab_search`, `status`. Обрабатывает JSON-RPC через stdio.
+Entry point. Registers 4 tools via `@modelcontextprotocol/sdk`: `search`, `github_search`, `gitlab_search`, `status`. Handles JSON-RPC over stdio.
 
-**Ответственность:**
-- Регистрация инструментов
-- Валидация входных параметров (zod)
-- Сериализация ответов
-- Обработка ошибок верхнего уровня
+**Responsibilities:**
+- Tool registration
+- Input validation (zod)
+- Response serialization
+- Top-level error handling
 
 ### 2. Budget Manager (`src/limits/budget-manager.ts`)
 
-Первая проверка. Если лимит задачи исчерпан — мгновенный отказ без обращения к провайдерам.
+First gate. If the task budget is exceeded — immediate rejection without calling providers.
 
-**Ответственность:**
-- Подсчёт запросов в текущем окне
-- Подсчёт page fetch в текущем окне
-- Дедупликация семантически похожих запросов
-- Отказ при превышении бюджета
+**Responsibilities:**
+- Search count in current window
+- Page fetch count in current window
+- Semantic deduplication of similar queries
+- Budget rejection with clear message
 
 ### 3. Query Normalizer (`src/search/query-normalizer.ts`)
 
-Нормализует запрос агента для лучшего попадания в кэш и более качественной выдачи.
+Normalizes agent queries for better cache hits and more consistent results.
 
-**Ответственность:**
-- Приведение к lowercase
-- Удаление лишних пробелов и спецсимволов
-- Расширение аббревиатур (опционально)
-- Генерация стабильного cache key
+**Responsibilities:**
+- Lowercase conversion
+- Whitespace and special character cleanup
+- Abbreviation expansion (optional)
+- Stable cache key generation
 
 ### 4. Semantic Cache (`src/cache/semantic-cache.ts`)
 
-Ищет семантически похожий запрос, для которого уже есть результаты.
+Looks for semantically similar queries with cached results.
 
-**Ответственность:**
-- Вычисление embedding запроса
-- Поиск ближайших соседей в sqlite-vec
-- Порог similarity (configurable, default 0.92)
-- Возврат результатов похожего запроса
+**Responsibilities:**
+- Query embedding computation
+- Nearest neighbor search in sqlite-vec
+- Configurable similarity threshold (default 0.92)
+- Return cached results for similar query
 
 ### 5. SQLite Exact Cache (`src/cache/sqlite.ts`)
 
-Точный кэш по нормализованному cache key.
+Exact-match cache using normalized cache keys.
 
-**Ответственность:**
-- Хранение queries, results, pages
+**Responsibilities:**
+- Store queries, results, pages
 - TTL-based eviction
-- Статистика для status()
+- Stats for status() tool
 
 ### 6. Provider Router (`src/search/provider-router.ts`)
 
-Выбирает провайдера и управляет fallback.
+Selects providers and manages fallback logic.
 
-**Ответственность:**
-- Выбор провайдера на основе health
-- Параллельный запрос 2 healthy провайдеров
-- Health tracking провайдеров
+**Responsibilities:**
+- Health-based provider selection
+- Parallel request to 2 healthy providers
+- Provider health tracking
 - Rate limit enforcement
 
 ### 7. Search Providers (`src/search/providers/`)
 
-Адаптеры для конкретных поисковых систем. Все реализуют единый интерфейс `SearchProvider`.
+Adapters for specific search engines. All implement the `SearchProvider` interface.
 
 ### 8. Reranker (`src/search/reranker.ts`)
 
-Финальное ранжирование агрегированных результатов.
+Final ranking of aggregated results.
 
-**Ответственность:**
+**Responsibilities:**
 - Semantic similarity scoring
 - Domain quality scoring
 - Freshness scoring
@@ -110,17 +110,17 @@ flowchart TD
 
 ### 9. Content Fetcher (`src/fetch/`)
 
-Опциональный слой. Скачивает и очищает страницы.
+Optional layer for downloading and cleaning web pages.
 
-**Ответственность:**
-- HTTP GET с retry и timeout
+**Responsibilities:**
+- HTTP GET with retry and timeout
 - HTML → Markdown (readability + turndown)
-- Усечение по max length
-- Кэширование в SQLite
+- Content truncation by max length
+- SQLite page caching
 
-## Потоки данных
+## Data Flow
 
-### Обычный поиск (cache miss)
+### Normal Search (cache miss)
 
 ```mermaid
 sequenceDiagram
@@ -154,7 +154,7 @@ sequenceDiagram
     MCP-->>Agent: { results: [...], meta: { cached: false } }
 ```
 
-### Семантический cache hit
+### Semantic Cache Hit
 
 ```mermaid
 sequenceDiagram
@@ -164,7 +164,7 @@ sequenceDiagram
     participant EC as Exact Cache
 
     Agent->>MCP: search({ query: "react hooks guide" })
-    Note over MCP: Нормализация, budget OK
+    Note over MCP: Normalization, budget OK
     MCP->>SC: findSimilar(embedding)
     SC-->>MCP: similarKey: "abc123" (similarity: 0.96)
     MCP->>EC: get("abc123")
@@ -172,9 +172,9 @@ sequenceDiagram
     MCP-->>Agent: { results: [...], meta: { cached: true } }
 ```
 
-## Модель данных
+## Data Model
 
-### Основные типы
+### Core Types
 
 ```typescript
 interface SearchRequest {
@@ -208,7 +208,7 @@ interface SearchMeta {
 }
 ```
 
-### Интерфейс провайдера
+### Provider Interface
 
 ```typescript
 interface SearchProvider {
@@ -245,10 +245,10 @@ interface ProviderStats {
 }
 ```
 
-## Принципы
+## Principles
 
-1. **Agent Ignorance** — агент не знает внутреннюю механику
-2. **Graceful Degradation** — если Tier 1 упал, fallback на Tier 2/3
-3. **Cache First** — семантический → точный → провайдер
-4. **Budget Safety** — жёсткие лимиты на запросы и fetch
-5. **Local First** — предпочтение SearXNG и локальным embeddings
+1. **Agent Ignorance** — agent does not see provider internals
+2. **Graceful Degradation** — if Tier 1 fails, fallback to Tier 2/3
+3. **Cache First** — semantic → exact → provider
+4. **Budget Safety** — hard limits on searches and fetches
+5. **Local First** — prefer SearXNG and local embeddings when available

@@ -1,91 +1,91 @@
-# Конфигурация
+# Configuration
 
-## Переменные окружения
+## Environment Variables
 
-Все настройки через `.env` файл или переменные окружения.
+All settings via `.env` file or environment variables.
 
-### Общие
+### General
 
-| Переменная | Default | Описание |
-|-----------|---------|----------|
-| `LOG_LEVEL` | `info` | Уровень логирования: debug, info, warn, error |
-| `DATA_DIR` | `./data` | Директория для SQLite базы |
-| `DB_FILENAME` | `search.db` | Имя файла базы |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOG_LEVEL` | `info` | Log level: debug, info, warn, error |
+| `DATA_DIR` | `./data` | SQLite database directory |
+| `DB_FILENAME` | `search.db` | Database file name |
 
-### Провайдеры — Tier 1
+### Providers — Tier 1
 
-| Переменная | Default | Описание |
-|-----------|---------|----------|
-| `SEARXNG_URL` | — | URL инстанса SearXNG |
-| `SEARXNG_ENGINES` | `google,bing,duckduckgo` | Движки SearXNG через запятую |
-| `DDG_ENABLED` | `true` | Включить DuckDuckGo |
-| `DDG_DELAY_MS` | `1000` | Задержка между DDG запросами (мс) |
-| `DDG_MAX_PER_MINUTE` | `10` | Максимум DDG запросов/мин |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SEARXNG_URL` | — | SearXNG instance URL |
+| `SEARXNG_ENGINES` | `google,bing,duckduckgo` | SearXNG engines (comma-separated) |
+| `DDG_ENABLED` | `true` | Enable DuckDuckGo |
+| `DDG_DELAY_MS` | `1000` | Delay between DDG requests (ms) |
+| `DDG_MAX_PER_MINUTE` | `10` | Max DDG requests per minute |
 
-### Провайдеры — Tier 2
+### Providers — Tier 2
 
-| Переменная | Default | Описание |
-|-----------|---------|----------|
-| `BRAVE_API_KEY` | — | API ключ Brave Search |
-| `BRAVE_DAILY_LIMIT` | `60` | Дневной лимит запросов |
-| `TAVILY_API_KEY` | — | API ключ Tavily |
-| `TAVILY_DAILY_LIMIT` | `30` | Дневной лимит запросов |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BRAVE_API_KEY` | — | Brave Search API key |
+| `BRAVE_DAILY_LIMIT` | `60` | Daily request limit |
+| `TAVILY_API_KEY` | — | Tavily API key |
+| `TAVILY_DAILY_LIMIT` | `30` | Daily request limit |
 
-### Провайдеры — Tier 3
+### Providers — Tier 3
 
-| Переменная | Default | Описание |
-|-----------|---------|----------|
-| `EXA_API_KEY` | — | API ключ Exa |
-| `FIRECRAWL_API_KEY` | — | API ключ Firecrawl |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EXA_API_KEY` | — | Exa API key |
+| `FIRECRAWL_API_KEY` | — | Firecrawl API key |
 
-### Budget (защита от агента)
+### Budget (agent protection)
 
-| Переменная | Default | Описание |
-|-----------|---------|----------|
-| `BUDGET_MAX_SEARCHES` | `15` | Макс. поисковых запросов за окно |
-| `BUDGET_MAX_FETCHES` | `30` | Макс. загрузок страниц за окно |
-| `BUDGET_WINDOW_MINUTES` | `30` | Размер sliding window (мин) |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BUDGET_MAX_SEARCHES` | `15` | Max search queries per window |
+| `BUDGET_MAX_FETCHES` | `30` | Max page fetches per window |
+| `BUDGET_WINDOW_MINUTES` | `30` | Sliding window size (min) |
 
-### Кэширование
+### Caching
 
-| Переменная | Default | Описание |
-|-----------|---------|----------|
-| `CACHE_MAX_SIZE_MB` | `500` | Макс. размер SQLite базы (МБ) |
-| `CACHE_EVICTION_INTERVAL_MIN` | `30` | Интервал очистки expired (мин) |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CACHE_MAX_SIZE_MB` | `500` | Max SQLite database size (MB) |
+| `CACHE_EVICTION_INTERVAL_MIN` | `30` | Eviction interval (min) |
 
-### Семантический слой
+### Semantic Layer
 
-| Переменная | Default | Описание |
-|-----------|---------|----------|
-| `EMBEDDING_MODEL` | `multilingual-e5-small` | Модель для embeddings |
-| `EMBEDDING_DIMENSION` | `384` | Размерность вектора |
-| `SEMANTIC_THRESHOLD` | `0.92` | Порог similarity для cache hit |
-| `SEMANTIC_ENABLED` | `false` | Включить семантический слой (V2) |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EMBEDDING_MODEL` | `multilingual-e5-small` | Embedding model |
+| `EMBEDDING_DIMENSION` | `384` | Vector dimension |
+| `SEMANTIC_THRESHOLD` | `0.92` | Similarity threshold for cache hit |
+| `SEMANTIC_ENABLED` | `false` | Enable semantic cache (V2) |
 
 ### Fetch Layer
 
-| Переменная | Default | Описание |
-|-----------|---------|----------|
-| `FETCH_TIMEOUT_MS` | `10000` | Таймаут загрузки (мс) |
-| `FETCH_MAX_RETRIES` | `2` | Макс. ретраев |
-| `FETCH_MAX_BODY_SIZE` | `5242880` | Макс. размер ответа (байт, 5MB) |
-| `FETCH_CONCURRENT_LIMIT` | `3` | Параллельных загрузок |
-| `FETCH_USER_AGENT` | `SearchMCP/1.0` | User-Agent для запросов |
-| `CONTENT_MAX_LENGTH` | `8000` | Макс. длина content (символов) |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FETCH_TIMEOUT_MS` | `10000` | Fetch timeout (ms) |
+| `FETCH_MAX_RETRIES` | `2` | Max retries |
+| `FETCH_MAX_BODY_SIZE` | `5242880` | Max response size (bytes, 5MB) |
+| `FETCH_CONCURRENT_LIMIT` | `3` | Concurrent fetches |
+| `FETCH_USER_AGENT` | `SearchMCP/1.0` | User-Agent header |
+| `CONTENT_MAX_LENGTH` | `8000` | Max content length (chars) |
 
-### Реранкинг
+### Reranking
 
-| Переменная | Default | Описание |
-|-----------|---------|----------|
-| `RERANK_ENABLED` | `true` | Включить реранкинг |
-| `RERANK_WEIGHT_SEMANTIC` | `0.35` | Вес semantic similarity |
-| `RERANK_WEIGHT_DOMAIN` | `0.30` | Вес domain quality |
-| `RERANK_WEIGHT_FRESHNESS` | `0.15` | Вес freshness |
-| `RERANK_WEIGHT_POSITION` | `0.20` | Вес position |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RERANK_ENABLED` | `true` | Enable reranking |
+| `RERANK_WEIGHT_SEMANTIC` | `0.35` | Semantic similarity weight |
+| `RERANK_WEIGHT_DOMAIN` | `0.30` | Domain quality weight |
+| `RERANK_WEIGHT_FRESHNESS` | `0.15` | Freshness weight |
+| `RERANK_WEIGHT_POSITION` | `0.20` | Position weight |
 
 ---
 
-## Пример `.env`
+## Example `.env`
 
 ```env
 # === General ===
@@ -134,14 +134,14 @@ CONTENT_MAX_LENGTH=8000
 RERANK_ENABLED=true
 ```
 
-## Валидация
+## Validation
 
-При запуске сервер проверяет:
+On startup, the server validates:
 
-1. **Минимум один провайдер доступен** — хотя бы `SEARXNG_URL` или `DDG_ENABLED=true`
-2. **API ключи валидны** — если указаны, проверяет формат
-3. **DATA_DIR существует** — создаёт если нет
-4. **SQLite работает** — тестовый запрос при старте
-5. **Embedding модель** — загружена если `SEMANTIC_ENABLED=true`
+1. **At least one provider available** — `DDG_ENABLED=true`, `SEARXNG_URL`, etc.
+2. **API key format** — if provided, checks key format
+3. **DATA_DIR exists** — created if missing
+4. **SQLite works** — test query on startup
+5. **Embedding model** — loaded if `SEMANTIC_ENABLED=true`
 
-При критических ошибках — process.exit(1) с понятным сообщением.
+On critical errors: `process.exit(1)` with a clear message.

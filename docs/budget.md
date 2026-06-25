@@ -1,40 +1,40 @@
-# Защита от "сумасшедшего агента"
+# Budget System — Protecting Against Runaway Agents
 
-## Проблема
+## Problem
 
-AI-агент может войти в цикл поиска:
-- Искать одно и то же разными формулировками
-- Загружать десятки страниц, не используя результаты
-- Исчерпать API-лимиты провайдеров за одну задачу
-- Замедлить работу из-за бесконечных fetch-запросов
+An AI agent can enter a search loop:
+- Query the same topic with different wording
+- Fetch dozens of pages without using results
+- Exhaust provider API limits in a single task
+- Slow down work with infinite fetch requests
 
 ## Budget Manager (`src/limits/budget-manager.ts`)
 
-### Лимиты на задачу
+### Per-Task Limits
 
-| Ресурс | Лимит | Описание |
-|--------|-------|----------|
-| Поисковые запросы | 10–15 | Уникальных запросов к провайдерам |
-| Page fetch | 20–30 | Загрузок страниц |
-| Окно бюджета | 30 минут | Sliding window |
+| Resource | Limit | Description |
+|----------|-------|-------------|
+| Search queries | 10–15 | Unique search queries to providers |
+| Page fetches | 20–30 | Page content downloads |
+| Budget window | 30 minutes | Sliding time window |
 
-**Конфигурация:**
+**Configuration:**
 ```env
 BUDGET_MAX_SEARCHES=15
 BUDGET_MAX_FETCHES=30
 BUDGET_WINDOW_MINUTES=30
 ```
 
-### Механика
+### Mechanics
 
 ```typescript
 interface TaskBudget {
-  window_start: number;      // Начало окна (Unix timestamp)
-  window_minutes: number;    // Размер окна
-  max_searches: number;      // Лимит поисковых запросов
-  max_fetches: number;       // Лимит загрузок страниц
-  searches_used: number;     // Использовано поисков
-  fetches_used: number;      // Использовано загрузок
+  window_start: number;      // Window start (Unix timestamp)
+  window_minutes: number;    // Window size in minutes
+  max_searches: number;      // Search query limit
+  max_fetches: number;       // Page fetch limit
+  searches_used: number;     // Searches consumed
+  fetches_used: number;      // Fetches consumed
 }
 
 class BudgetManager {
@@ -47,11 +47,11 @@ class BudgetManager {
 interface BudgetCheckResult {
   allowed: boolean;
   remaining: number;
-  message?: string;         // Сообщение об ошибке для агента
+  message?: string;
 }
 ```
 
-### Ответ при превышении бюджета
+### Budget Exceeded Response
 
 ```json
 {
@@ -71,9 +71,9 @@ interface BudgetCheckResult {
 
 ## Query Deduplication
 
-### Проблема
+### Problem
 
-Агент часто ищет одно и то же разными словами:
+Agents often search for the same thing with different wording:
 
 ```
 "opencode plugins"
@@ -82,25 +82,25 @@ interface BudgetCheckResult {
 "how to create opencode plugin"
 ```
 
-Без дедупликации — 4 запроса к провайдерам. С дедупликацией — 1.
+Without deduplication — 4 provider calls. With deduplication — 1.
 
-### Алгоритм
+### Algorithm
 
 ```mermaid
 flowchart TD
-    A[Новый запрос] --> B[Нормализация]
-    B --> C[Вычислить embedding]
-    C --> D[Поиск в recent queries]
+    A[New query] --> B[Normalize]
+    B --> C[Compute embedding]
+    C --> D[Search recent queries]
     D --> E{similarity >= 0.92?}
-    E -->|Yes| F[Считать дубликатом]
-    F --> G[Вернуть результаты оригинала]
-    G --> H[НЕ считать как search usage]
-    E -->|No| I[Уникальный запрос]
-    I --> J[Записать search usage +1]
-    J --> K[Отправить в провайдер]
+    E -->|Yes| F[Count as duplicate]
+    F --> G[Return original results]
+    G --> H[DO NOT count as search usage]
+    E -->|No| I[Unique query]
+    I --> J[Record search usage +1]
+    J --> K[Send to provider]
 ```
 
-### Буфер последних запросов
+### Recent Query Buffer
 
 ```typescript
 interface RecentQuery {
@@ -112,11 +112,10 @@ interface RecentQuery {
 
 class DeduplicationBuffer {
   private buffer: RecentQuery[] = [];
-  private maxSize = 50;        // Последние 50 запросов
-  private ttl = 30 * 60 * 1000; // 30 минут
+  private maxSize = 50;            // Last 50 queries
+  private ttl = 30 * 60 * 1000;   // 30 minutes
 
   isDuplicate(embedding: number[]): RecentQuery | null {
-    // Очистить expired
     this.evictExpired();
 
     for (const recent of this.buffer) {
@@ -136,7 +135,7 @@ class DeduplicationBuffer {
 }
 ```
 
-### Пример
+### Example
 
 ```
 [14:00:01] search("opencode plugins")
@@ -162,21 +161,21 @@ class DeduplicationBuffer {
 
 ---
 
-## Rate Limiting провайдеров
+## Provider Rate Limiting
 
-Помимо task budget, каждый провайдер имеет свои rate limits:
+In addition to task budget, each provider has its own rate limits:
 
 ```typescript
 interface ProviderRateLimit {
-  requests_per_minute: number;    // Запросов в минуту
-  requests_per_day: number;       // Запросов в день
-  requests_per_month: number;     // Запросов в месяц
+  requests_per_minute: number;
+  requests_per_day: number;
+  requests_per_month: number;
   current_minute: number;
   current_day: number;
   current_month: number;
 }
 
-// Дефолты
+// Defaults
 const RATE_LIMITS = {
   searxng:     { rpm: 30, rpd: Infinity, rpm_month: Infinity },
   duckduckgo:  { rpm: 10, rpd: 200, rpm_month: Infinity },
@@ -187,11 +186,11 @@ const RATE_LIMITS = {
 };
 ```
 
-## Итого: три уровня защиты
+## Summary: Three Protection Layers
 
 ```mermaid
 flowchart TD
-    A[Запрос агента] --> B[Level 1: Task Budget]
+    A[Agent request] --> B[Level 1: Task Budget]
     B -->|Exceeded| X1[Reject]
     B -->|OK| C[Level 2: Query Dedup]
     C -->|Duplicate| Y[Return cached]

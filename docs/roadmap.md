@@ -1,99 +1,100 @@
 # Roadmap
 
-## V1 — MVP (1–2 дня)
+## V1 — MVP (1–2 days)
 
-Минимально работающая версия с одним провайдером и базовым кэшем.
+Minimally working version with one provider and basic cache.
 
-### Задачи
+### Tasks
 
-- [ ] Инициализация проекта (TypeScript, `@modelcontextprotocol/sdk`)
-- [ ] MCP transport (stdio, JSON-RPC)
-- [ ] Tool: `search` с валидацией (zod)
-- [ ] Tool: `status` с базовой диагностикой
-- [ ] Query Normalizer (lowercase, trim, cache key)
-- [ ] SQLite cache (queries, results, pages)
-- [ ] TTL-based eviction
-- [ ] Provider: SearXNG adapter
-- [ ] Provider: DuckDuckGo Lite adapter (HTML scraping)
-- [ ] Sequential fallback (SearXNG → DDG)
-- [ ] Content Fetcher (HTTP GET → readability → markdown)
-- [ ] Budget Manager (search limit, fetch limit)
-- [ ] Rate limiting (per-provider)
-- [ ] Structured logging
-- [ ] `.env` конфигурация
-- [ ] Тесты: unit для каждого модуля
-- [ ] Тесты: интеграционный smoke test
+- [x] Project init (TypeScript, `@modelcontextprotocol/sdk`)
+- [x] MCP transport (stdio, JSON-RPC)
+- [x] Tool: `search` with zod validation
+- [x] Tool: `status` with basic diagnostics
+- [x] Query Normalizer (lowercase, trim, cache key)
+- [x] SQLite cache (queries, results, pages)
+- [x] TTL-based eviction
+- [x] Provider: SearXNG adapter
+- [x] Provider: DuckDuckGo adapter (HTML scraping)
+- [x] Sequential fallback (SearXNG → DDG)
+- [x] Content Fetcher (HTTP GET → readability → markdown)
+- [x] Budget Manager (search limit, fetch limit)
+- [x] Rate limiting (per-provider)
+- [x] Structured logging
+- [x] `.env` configuration
+- [x] Tests: unit for each module
+- [x] Tests: integration smoke test
 
-### Результат V1
+### V1 Result
 
-Агент вызывает `search()` → SearXNG или DDG отвечает → результаты кэшируются → при `include_content=true` страницы загружаются и очищаются.
-
----
-
-## V2 — Semantic Layer + Tier 2 (3–5 дней)
-
-Добавление семантического кэша и официальных API провайдеров.
-
-### Задачи
-
-- [ ] Embedding сервис (multilingual-e5-small или bge-m3)
-- [ ] sqlite-vec интеграция
-- [ ] Semantic query cache (find similar, threshold 0.92)
-- [ ] Query deduplication (buffer последних 50 запросов)
-- [ ] Provider: Brave Search API adapter
-- [ ] Provider: Tavily API adapter
-- [ ] Reranker: semantic similarity scoring
-- [ ] Reranker: domain quality scoring
-- [ ] Reranker: freshness scoring
-- [ ] Reranker: position blending
-- [ ] Weighted final score
-- [ ] Intent-aware веса реранкинга
-- [ ] Дедупликация результатов по URL
-- [ ] Provider health tracking
-- [ ] Provider health recovery (5-min retry)
-- [ ] Расширенный status() (provider health, cache stats)
-- [ ] Тесты: semantic cache
-- [ ] Тесты: reranker scoring
-
-### Результат V2
-
-Агент получает дедуплицированные, ранжированные результаты. Похожие запросы не тратят бюджет. 4 провайдера с fallback.
+Agent calls `search()` → SearXNG or DDG responds → results cached → when `include_content=true` pages are fetched and cleaned.
 
 ---
 
-## V3 — Специализация + Production (1–2 недели)
+## V2 — Semantic Layer + Tier 2 (3–5 days)
 
-Специализированные поисковые режимы и production-ready hardening.
+Semantic cache and official API providers.
 
-### Задачи
+### Tasks
 
-- [ ] GitHub-specific search (GitHub API, issue/PR/code search)
-- [ ] Docs-specific search (приоритет readthedocs, docs.*, MDN)
-- [ ] Intent routing: автоматическое определение intent по запросу
-- [ ] Advanced ranking: learning-to-rank на основе agent feedback
-- [ ] Provider health scoring (composite score: latency + error rate + quality)
+- [x] Embedding service (multilingual-e5-small)
+- [x] sqlite-vec integration
+- [x] Semantic query cache (find similar, threshold 0.92)
+- [x] Query deduplication (buffer last 50 queries)
+- [x] Provider: Brave Search API adapter
+- [x] Provider: Tavily API adapter
+- [x] Reranker: semantic similarity scoring
+- [x] Reranker: domain quality scoring
+- [x] Reranker: freshness scoring
+- [x] Reranker: position blending
+- [x] Weighted final score
+- [x] Intent-aware reranking weights
+- [x] Deduplication by URL
+- [x] Provider health tracking
+- [x] Provider health recovery (5-min retry)
+- [x] Extended `status()` (provider health, cache stats)
+- [x] Tests: semantic cache
+- [x] Tests: reranker scoring
 
-- [ ] Provider: Exa adapter
-- [ ] Provider: Firecrawl adapter
-- [ ] Parallel multi-provider queries
-- [ ] Result aggregation из нескольких провайдеров
-- [ ] robots.txt respect (опционально)
+### V2 Result
+
+Agent gets deduplicated, ranked results. Similar queries don't waste budget. 4 providers with fallback.
+
+---
+
+## V3 — Specialization + Production (1–2 weeks)
+
+Specialized search modes and production-ready hardening.
+
+### Tasks
+
+- [x] GitHub-specific search (GitHub API, repos/code/issues/users)
+- [x] GitLab-specific search (GitLab API, projects/issues/MRs/blobs)
+- [ ] Docs-specific search (prioritize readthedocs, docs.*, MDN)
+- [ ] Intent routing: automatic intent detection by query
+- [ ] Advanced ranking: learning-to-rank based on agent feedback
+- [ ] Provider health scoring (composite: latency + error rate + quality)
+- [x] Provider: Exa adapter
+- [x] Provider: Firecrawl adapter
+- [x] Parallel multi-provider queries
+- [ ] Result aggregation across multiple providers
+- [ ] robots.txt respect (optional)
 - [ ] Cache analytics (hit rate, popular queries)
 - [ ] DB migration system
-- [ ] Graceful shutdown (finish in-flight, close DB)
-- [ ] Optional vector index (для больших объёмов cached queries)
-- [ ] Comprehensive test suite
+- [x] Graceful shutdown (finish in-flight, close DB)
+- [ ] Optional vector index (for large cached query volumes)
+- [x] Comprehensive test suite
 - [ ] Performance benchmarks
 - [ ] Docker image
 - [ ] Documentation: deployment guide
+- [x] CI workflow (Node 20/22, npm ci, build, test)
 
-### Результат V3
+### V3 Result
 
-Production-ready MCP Search Server с 7 провайдерами, специализированными режимами поиска, health monitoring и аналитикой.
+Production-ready MCP Search Server with 7 providers, specialized search modes, health monitoring, and analytics.
 
 ---
 
-## Зависимости по этапам
+## Dependencies by Phase
 
 ```mermaid
 gantt
@@ -123,10 +124,10 @@ gantt
     Production hardening             :v3_5, after v3_4, 3d
 ```
 
-## Технический стек
+## Tech Stack
 
-| Категория | Технология | Версия |
-|-----------|-----------|--------|
+| Category | Technology | Version |
+|----------|-----------|---------|
 | Runtime | Node.js | >= 20 |
 | Language | TypeScript | >= 5.3 |
 | MCP SDK | `@modelcontextprotocol/sdk` | latest |
