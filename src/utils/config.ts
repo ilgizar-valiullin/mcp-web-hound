@@ -1,14 +1,22 @@
 import dotenv from 'dotenv';
 import { existsSync, mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ConfigSchema, type Config } from './types.js';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Server root = ../../ from src/utils/ (next to package.json)
+const SERVER_ROOT = resolve(__dirname, '../..');
+
+// Load .env from server's own root, regardless of CWD
+dotenv.config({ path: resolve(SERVER_ROOT, '.env') });
 
 function loadConfig(): Config {
   const parsed = ConfigSchema.parse(process.env);
 
-  const dataDir = resolve(parsed.DATA_DIR);
+  const dataDir = resolve(SERVER_ROOT, parsed.DATA_DIR);
   if (!existsSync(dataDir)) {
     mkdirSync(dataDir, { recursive: true });
   }
