@@ -71,6 +71,30 @@ describe('ProviderRouter', () => {
     expect(p2.doSearchFn).toHaveBeenCalledOnce();
   });
 
+  it('should fallback per-slot when first batch fails', async () => {
+    const p1 = new MockProvider('P1', 1);
+    const p2 = new MockProvider('P2', 1);
+    const p3 = new MockProvider('P3', 1);
+    const p4 = new MockProvider('P4', 1);
+
+    p1.doSearchFn.mockRejectedValue(new Error('API down'));
+    p2.doSearchFn.mockRejectedValue(new Error('API down'));
+    p3.doSearchFn.mockResolvedValueOnce(dummyResults);
+    p4.doSearchFn.mockResolvedValueOnce(dummyResults);
+
+    const router = new (class extends ProviderRouter {
+      constructor() {
+        super();
+        (this as any).providers = [p1, p2, p3, p4];
+      }
+    })();
+
+    const results = await router.search('test', dummyOptions);
+    expect(results).toEqual([...dummyResults, ...dummyResults]);
+    expect(p3.doSearchFn).toHaveBeenCalledOnce();
+    expect(p4.doSearchFn).toHaveBeenCalledOnce();
+  });
+
   it('should throw if all providers fail', async () => {
     const p1 = new MockProvider('Provider1', 1);
     p1.doSearchFn.mockRejectedValue(new Error('API down'));

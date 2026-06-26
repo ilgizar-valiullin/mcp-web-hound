@@ -99,52 +99,41 @@ export class ProviderRouter {
   ): Promise<ProviderResult[]> {
     const allResults: ProviderResult[] = [];
     const lastError: Error[] = [];
+    const queue = [...this.providers];
 
-    const healthyProviders: SearchProvider[] = [];
-    for (const provider of this.providers) {
-      if (healthyProviders.length >= maxParallel) break;
-      try {
-        const healthy = await provider.healthCheck();
-        if (healthy) {
-          healthyProviders.push(provider);
-        } else {
-          logger.warn({ provider: provider.name }, 'Provider unhealthy, skipping');
+    const trySlot = async (): Promise<void> => {
+      while (queue.length > 0) {
+        const provider = queue.shift()!;
+        try {
+          const healthy = await provider.healthCheck();
+          if (!healthy) {
+            logger.warn({ provider: provider.name }, 'Provider unhealthy, skipping');
+            continue;
+          }
+          logger.debug({ provider: provider.name, query }, 'Routing search to provider');
+          const results = await provider.search(query, options);
+          if (results && results.length > 0) {
+            logger.info(
+              { provider: provider.name, results: results.length },
+              'Provider returned results',
+            );
+            allResults.push(...results);
+            return;
+          }
+          logger.warn({ provider: provider.name }, 'Provider returned empty results');
+        } catch (err) {
+          const e = err instanceof Error ? err : new Error(String(err));
+          logger.error({ err: e, provider: provider.name }, 'Provider failed');
+          lastError.push(e);
         }
-      } catch {
-        continue;
       }
-    }
+    };
 
-    if (healthyProviders.length === 0) {
-      throw new Error('No healthy providers available');
+    const slots: Promise<void>[] = [];
+    for (let i = 0; i < maxParallel; i++) {
+      slots.push(trySlot());
     }
-
-    const results = await Promise.allSettled(
-      healthyProviders.map((provider) => {
-        logger.debug({ provider: provider.name, query }, 'Routing search to provider');
-        return provider.search(query, options);
-      }),
-    );
-
-    for (let i = 0; i < results.length; i++) {
-      const r = results[i];
-      if (r.status === 'fulfilled') {
-        const providerResults = r.value;
-        if (providerResults && providerResults.length > 0) {
-          logger.info(
-            { provider: healthyProviders[i].name, results: providerResults.length },
-            'Provider returned results',
-          );
-          allResults.push(...providerResults);
-        } else {
-          logger.warn({ provider: healthyProviders[i].name }, 'Provider returned empty results');
-        }
-      } else {
-        const err = r.reason instanceof Error ? r.reason : new Error(String(r.reason));
-        logger.error({ err, provider: healthyProviders[i].name }, 'Provider failed');
-        lastError.push(err);
-      }
-    }
+    await Promise.allSettled(slots);
 
     if (allResults.length === 0) {
       if (lastError.length > 0) {
