@@ -124,6 +124,7 @@ Full docs:
 ## Donations / Support the Project
 
 * **EVM Address** (USDT, USDC, ETH, BNB): `0x3acf78e721aa065bd1509735a3ace630fcd0f452`
+
   _Supported networks: BNB Smart Chain (BEP20), Polygon, Arbitrum One, Ethereum (ERC20)_
   <details>
   <summary>Show EVM QR Code</summary>
@@ -131,6 +132,7 @@ Full docs:
   </details>
 
 * **USDT (TRC20)**: `TMG1BZJswd8UacHANKVi9Veq5FqSbaMjAQ`
+
   _Supported network: Tron (TRC20)_
   <details>
   <summary>Show TRC20 QR Code</summary>
@@ -138,6 +140,7 @@ Full docs:
   </details>
 
 * **TON / USDT (TON)**: `UQDjf84AZSwuCPC3UWFv28p-V44zI-1lfhqCMfaex2Q-jDsY`
+
   _Supported network: The Open Network (TON)_
   <details>
   <summary>Show TON QR Code</summary>
