@@ -4,6 +4,10 @@ import { ProviderRouter } from '../search/provider-router.js';
 import { BudgetManager } from '../limits/budget-manager.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const pkg = require('../../package.json') as { version: string };
 
 const startTime = Date.now();
 
@@ -40,7 +44,7 @@ export function registerStatusTool(
                   },
                   embedding_model: config.SEMANTIC_ENABLED ? config.EMBEDDING_MODEL : 'disabled',
                   uptime_seconds: uptimeSeconds,
-                  version: '0.1.0',
+                  version: pkg.version,
                 },
                 null,
                 2,
