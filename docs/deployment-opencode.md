@@ -1,5 +1,7 @@
 # Deployment Guide — OpenCode
 
+> ⚠️ **Search protocol is in Testing Stage.** The `search-protocol.md` is a draft — adapt to your agent's behavior. It may change.
+
 ## Prerequisites
 
 - **Node.js** >= 20
@@ -29,12 +31,12 @@ Edit `.env` — fill in API keys for the providers you want:
 
 | Provider | Key | Where to get |
 |----------|-----|-------------|
-| Brave | `BRAVE_API_KEY` | https://api.search.brave.com |
+| Brave API | `BRAVE_API_KEY` | https://api.search.brave.com |
 | Tavily | `TAVILY_API_KEY` | https://tavily.com |
 | Exa | `EXA_API_KEY` | https://exa.ai |
 | Firecrawl | `FIRECRAWL_API_KEY` | https://firecrawl.dev |
 
-DuckDuckGo and Bing work without keys (HTML scraping).
+Startpage, DuckDuckGo, Brave Web, and Bing work without keys (HTML scraping).
 
 ## Register in OpenCode
 
@@ -53,6 +55,23 @@ Or via CLI:
 ```bash
 opencode mcp add search_mcp -- node /absolute/path/to/mcp_search/dist/index.js
 ```
+
+## Add Search Protocol to Instructions
+
+OpenCode reads `instructions` from `opencode.json`. Add the search protocol so the agent knows how to use the tools effectively:
+
+```json
+"instructions": [
+  "...",
+  "/absolute/path/to/mcp_search/search-protocol.md"
+]
+```
+
+> ⚠️ **Testing Stage.** The search protocol is a draft — adapt and tweak as needed. It may change.
+
+### Removing Search From Other Prompts
+
+If your agent has search instructions in other system prompts (e.g., `free-mode-prompt.md`, `CLAUDE.md`, `AGENTS.md`), remove them and rely solely on `search-protocol.md`. This avoids conflicting instructions and ensures consistent search behavior.
 
 ## Verify
 

@@ -98,6 +98,24 @@ Production-ready MCP Search Server with 6 providers, GitHub/GitLab search, confi
 
 ---
 
+## V4 — Stability & Local Search (In Progress)
+
+### Priority Tasks
+
+- [ ] **More web providers** — increase the number of scraped/API providers for better stability and fallback coverage. Current scraping providers (Startpage, DDG, Brave Web, Bing) are all undocumented and fragile.
+- [ ] **Local document search** — search over local document databases (vector-indexed docs, wikis, internal knowledge bases). User-provided content, no network required.
+- [ ] **System prompt expansion** — extend `search-protocol.md` with site-specific search patterns.
+- [ ] **Agent testing on specific sites** — validate that the agent correctly searches and extracts information from targeted domains (Stackoverflow, Reddit, etc).
+
+### Tasks
+
+- [ ] Provider: additional search engines (Google via custom search API, etc.)
+- [ ] Local document indexing (embedding → sqlite-vec)
+- [ ] Local document search tool (`search_docs`)
+- [ ] Scraped provider health monitoring dashboard
+
+---
+
 ## Dependencies by Phase
 
 ```mermaid

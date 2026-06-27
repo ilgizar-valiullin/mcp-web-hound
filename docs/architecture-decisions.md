@@ -213,6 +213,17 @@ V3: Make it invisible    — Implicit freshness, unified NLI, no agent-facing pa
 
 Each stage removed complexity from the agent's side and moved it to the server. The end state: the agent types a query and gets ranked, fresh, deduplicated results. No config, no params, no surprises.
 
+### Stage 4 — Post-V3 refinements
+
+| Change | Why |
+|--------|-----|
+| **Startpage provider** | Google results via Startpage proxy — better relevance than DDG/Bing. Free, no key. |
+| **Brave Web (scrape) provider** | Brave search results via HTML scrape. Free, no key, supplements Brave API. |
+| **Provider rename `brave` → `brave_web`** | Eliminates confusion between Brave Web (scrape) and Brave API. `brave_web` = scrape, `brave_api` = API. |
+| **1s delay per scraped provider** | All HTML scrapers (Startpage, DDG, Brave Web, Bing) enforce a static 1-second delay between their own requests to avoid IP bans. |
+| **Incremental backoff suspension** | On 429/403, suspension grows: 1min → 5min → 15min → 1h → 4h → 24h. Resets on success. Matches SearXNG's approach but with granular start. |
+| **Rate limit env vars** | Per-provider RPM/RPD/RPMONTH env vars for fine-grained control. |
+
 ### Future Roadmap & Known Limitations
 
 - **Scraping Fragility:** DDG/Bing HTML parsing remains a vector for silent degradation. Strict monitoring via CI/CD integration tests is required.

@@ -1,10 +1,11 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { config } from './utils/config.js';
+import { config, buildProviderLimits } from './utils/config.js';
 import { logger } from './utils/logger.js';
 import { SqliteCache } from './cache/sqlite.js';
 import { SemanticCache } from './cache/semantic-cache.js';
 import { BudgetManager } from './limits/budget-manager.js';
+import { RateLimitStore } from './limits/rate-limit-store.js';
 import { ProviderRouter } from './search/provider-router.js';
 import { Orchestrator } from './search/orchestrator.js';
 import { EmbeddingService } from './embeddings/embedding-service.js';
@@ -37,7 +38,8 @@ async function main(): Promise<void> {
 
   const cache = new SqliteCache();
   const budgetManager = new BudgetManager();
-  const router = new ProviderRouter();
+  const rateLimitStore = new RateLimitStore(config.DATA_DIR, buildProviderLimits(config));
+  const router = new ProviderRouter(rateLimitStore);
 
   let semanticCache: SemanticCache | undefined;
   let embeddingService: EmbeddingService | undefined;
@@ -70,6 +72,12 @@ async function main(): Promise<void> {
     logger.info('Shutting down server');
 
     try {
+      rateLimitStore.flush();
+    } catch (err) {
+      logger.error({ err }, 'Error flushing rate limit store');
+    }
+
+    try {
       cache.close();
     } catch (err) {
       logger.error({ err }, 'Error closing cache');
@@ -98,8 +106,10 @@ async function main(): Promise<void> {
     {
       providers: {
         ddg: config.DDG_ENABLED,
+        brave_web: config.BRAVE_WEB_ENABLED,
         bing: config.BING_ENABLED,
-        brave: !!config.BRAVE_API_KEY,
+        startpage: config.STARTPAGE_ENABLED,
+        brave_api: !!config.BRAVE_API_KEY,
         tavily: !!config.TAVILY_API_KEY,
         exa: !!config.EXA_API_KEY,
         firecrawl: !!config.FIRECRAWL_API_KEY,

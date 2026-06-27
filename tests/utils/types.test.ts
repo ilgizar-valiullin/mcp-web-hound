@@ -50,7 +50,7 @@ describe('ConfigSchema', () => {
 
   it('should have correct default for PROVIDER_ORDER', () => {
     const result = ConfigSchema.parse({});
-    expect(result.PROVIDER_ORDER).toBe('ddg,bing,brave,tavily,exa,firecrawl');
+    expect(result.PROVIDER_ORDER).toBe('startpage,ddg,brave_web,bing,brave_api,tavily,exa,firecrawl');
   });
 
   it('should have correct default for PROVIDER_EXECUTION_MODE', () => {
@@ -77,7 +77,7 @@ describe('ConfigSchema', () => {
   it('should have correct defaults for SEARCH_TIMEOUT_MS and MAX_RESULTS_AFTER_RERANK', () => {
     const result = ConfigSchema.parse({});
     expect(result.SEARCH_TIMEOUT_MS).toBe(15000);
-    expect(result.MAX_RESULTS_AFTER_RERANK).toBe(10);
+    expect(result.MAX_RESULTS_AFTER_RERANK).toBe(25);
   });
 
   it('should have correct default for CACHE_TTL_MINUTES', () => {
@@ -97,8 +97,8 @@ describe('ConfigSchema', () => {
   });
 
   it('should parse PROVIDER_ORDER as string', () => {
-    const result = ConfigSchema.parse({ PROVIDER_ORDER: 'brave,ddg' });
-    expect(result.PROVIDER_ORDER).toBe('brave,ddg');
+    const result = ConfigSchema.parse({ PROVIDER_ORDER: 'brave_web,ddg' });
+    expect(result.PROVIDER_ORDER).toBe('brave_web,ddg');
   });
 
   it('should parse MAX_PARALLEL_PROVIDERS from string', () => {

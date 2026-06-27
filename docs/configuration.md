@@ -16,9 +16,15 @@ All settings via `.env` file or environment variables.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PROVIDER_ORDER` | `ddg,bing,brave,tavily,exa,firecrawl` | Priority order (comma-separated) |
+| `PROVIDER_ORDER` | `startpage,ddg,brave_web,bing,brave_api,tavily,exa,firecrawl` | Priority order (comma-separated) |
 | `PROVIDER_EXECUTION_MODE` | `parallel` | `parallel` or `sequential` |
 | `MAX_PARALLEL_PROVIDERS` | `2` | How many providers to call concurrently (parallel mode) |
+
+### Startpage (Tier 1 — Google mirror, scrape, free)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `STARTPAGE_ENABLED` | `true` | Enable Startpage |
 
 ### DuckDuckGo (Tier 1 — scrape, free)
 
@@ -28,17 +34,23 @@ All settings via `.env` file or environment variables.
 | `DDG_DELAY_MS` | `1000` | Delay between DDG requests (ms) |
 | `DDG_MAX_PER_MINUTE` | `10` | Max DDG requests per minute |
 | `DDG_RESULTS_PER_PAGE` | `10` | Results per page (DDG returns 10) |
-| `DDG_MAX_PAGES` | `2` | Max pages to scrape (up to 20 raw results) |
+| `DDG_MAX_PAGES` | `1` | Max pages to scrape |
+
+### Brave Web (Tier 1 — scrape, free)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BRAVE_WEB_ENABLED` | `true` | Enable Brave Web scrape |
 
 ### Bing (Tier 1 — scrape, free)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `BING_ENABLED` | `false` | Enable Bing |
+| `BING_ENABLED` | `true` | Enable Bing |
 | `BING_RESULTS_PER_PAGE` | `10` | Results per page |
 | `BING_MAX_PAGES` | `1` | Max pages to scrape |
 
-### Brave (Tier 2 — API)
+### Brave API (Tier 2 — API key)
 
 | Variable | Default | Description |
 |----------|---------|-------------|

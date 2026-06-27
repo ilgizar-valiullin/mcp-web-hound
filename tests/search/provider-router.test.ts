@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProviderRouter } from '../../src/search/provider-router.js';
 import { BaseProvider } from '../../src/search/providers/base-provider.js';
 import { ProviderOptions, ProviderResult } from '../../src/utils/types.js';
+import { RateLimitStore, ProviderLimits } from '../../src/limits/rate-limit-store.js';
 
 class MockProvider extends BaseProvider {
   readonly name: string;
@@ -19,11 +20,39 @@ class MockProvider extends BaseProvider {
   }
 }
 
+function makeRouter(providers: MockProvider[], maxParallel?: number): ProviderRouter {
+  const store = new (class extends RateLimitStore {
+    constructor() { super('', {} as Record<string, ProviderLimits>); }
+    check() {
+      return { allowed: true, reason: null, suspended_until: null, remaining: { minute: 999, day: 999, month: 999 }, resets_at: { minute: '', day: '', month: '' } };
+    }
+    record() {}
+    suspend() {}
+    getUsage() {
+      return { provider: '', minute: { used: 0, limit: 999, resets_at: '' }, day: { used: 0, limit: 999, resets_at: '' }, month: { used: 0, limit: 999, resets_at: '' }, last_request: null, suspension: { active: false, until: null, reason: null, error_type: null, remaining_seconds: 0 } };
+    }
+    flush() {}
+  })();
+
+  const router = new (class extends ProviderRouter {
+    constructor() { super(store); (this as any).providers = providers; }
+    async search(query: string, options: ProviderOptions) {
+      return this['searchParallel'](query, options, maxParallel ?? 2);
+    }
+  })();
+
+  return router;
+}
+
 describe('ProviderRouter', () => {
   const dummyOptions: ProviderOptions = { intent: 'web', freshness: 'any', max_results: 10 };
   const dummyResults: ProviderResult[] = [
     { title: 'Test', url: 'https://test.com', snippet: 'Test', raw_position: 1, provider: 'mock' },
   ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('should merge results from first 2 healthy providers (parallel)', async () => {
     const p1 = new MockProvider('Provider1', 1);
@@ -33,13 +62,7 @@ describe('ProviderRouter', () => {
     p1.doSearchFn.mockResolvedValueOnce(dummyResults);
     p2.doSearchFn.mockResolvedValueOnce(dummyResults);
 
-    const router = new (class extends ProviderRouter {
-      constructor() {
-        super();
-        (this as any).providers = [p1, p2, p3];
-      }
-    })();
-
+    const router = makeRouter([p1, p2, p3]);
     const results = await router.search('test', dummyOptions);
     expect(results).toEqual([...dummyResults, ...dummyResults]);
     expect(p1.doSearchFn).toHaveBeenCalledOnce();
@@ -54,13 +77,7 @@ describe('ProviderRouter', () => {
     p1.doSearchFn.mockRejectedValueOnce(new Error('API down'));
     p2.doSearchFn.mockResolvedValueOnce(dummyResults);
 
-    const router = new (class extends ProviderRouter {
-      constructor() {
-        super();
-        (this as any).providers = [p1, p2];
-      }
-    })();
-
+    const router = makeRouter([p1, p2]);
     const results = await router.search('test', dummyOptions);
     expect(results).toEqual(dummyResults);
     expect(p2.doSearchFn).toHaveBeenCalledOnce();
@@ -77,13 +94,7 @@ describe('ProviderRouter', () => {
     p3.doSearchFn.mockResolvedValueOnce(dummyResults);
     p4.doSearchFn.mockResolvedValueOnce(dummyResults);
 
-    const router = new (class extends ProviderRouter {
-      constructor() {
-        super();
-        (this as any).providers = [p1, p2, p3, p4];
-      }
-    })();
-
+    const router = makeRouter([p1, p2, p3, p4]);
     const results = await router.search('test', dummyOptions);
     expect(results).toEqual([...dummyResults, ...dummyResults]);
     expect(p3.doSearchFn).toHaveBeenCalledOnce();
@@ -94,13 +105,7 @@ describe('ProviderRouter', () => {
     const p1 = new MockProvider('Provider1', 1);
     p1.doSearchFn.mockRejectedValue(new Error('API down'));
 
-    const router = new (class extends ProviderRouter {
-      constructor() {
-        super();
-        (this as any).providers = [p1];
-      }
-    })();
-
+    const router = makeRouter([p1]);
     await expect(router.search('test', dummyOptions)).rejects.toThrow('All providers failed');
   });
 
@@ -109,13 +114,7 @@ describe('ProviderRouter', () => {
     p1.doSearchFn.mockResolvedValueOnce(dummyResults);
     const p2 = new MockProvider('Provider2', 1);
 
-    const router = new (class extends ProviderRouter {
-      constructor() {
-        super();
-        (this as any).providers = [p1, p2];
-      }
-    })() as any;
-
+    const router = makeRouter([p1, p2]) as any;
     const result = await router.searchSequential('test', dummyOptions);
     expect(p1.doSearchFn).toHaveBeenCalledOnce();
     expect(p2.doSearchFn).not.toHaveBeenCalled();
@@ -129,13 +128,7 @@ describe('ProviderRouter', () => {
     p1.doSearchFn.mockRejectedValueOnce(new Error('API down'));
     p2.doSearchFn.mockResolvedValueOnce(dummyResults);
 
-    const router = new (class extends ProviderRouter {
-      constructor() {
-        super();
-        (this as any).providers = [p1, p2];
-      }
-    })() as any;
-
+    const router = makeRouter([p1, p2]) as any;
     const result = await router.searchSequential('test', dummyOptions);
     expect(p1.doSearchFn).toHaveBeenCalledOnce();
     expect(p2.doSearchFn).toHaveBeenCalledOnce();
@@ -144,33 +137,9 @@ describe('ProviderRouter', () => {
 
   it('should throw when all sequential providers fail', async () => {
     const p1 = new MockProvider('Provider1', 1);
-
     p1.doSearchFn.mockRejectedValueOnce(new Error('API down'));
 
-    const router = new (class extends ProviderRouter {
-      constructor() {
-        super();
-        (this as any).providers = [p1];
-      }
-    })() as any;
-
-    await expect(router.searchSequential('test', dummyOptions)).rejects.toThrow(
-      'All sequential providers failed',
-    );
-  });
-
-  it('should throw when all sequential providers fail', async () => {
-    const p1 = new MockProvider('Provider1', 1);
-
-    p1.doSearchFn.mockRejectedValueOnce(new Error('API down'));
-
-    const router = new (class extends ProviderRouter {
-      constructor() {
-        super();
-        (this as any).providers = [p1];
-      }
-    })() as any;
-
+    const router = makeRouter([p1]) as any;
     await expect(router.searchSequential('test', dummyOptions)).rejects.toThrow(
       'All sequential providers failed',
     );

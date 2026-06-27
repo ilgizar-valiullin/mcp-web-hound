@@ -6,6 +6,31 @@ Providers work with the router, which selects the first 2 healthy providers and 
 
 ## Tier 1 — Core (free, scraping)
 
+### Startpage (Google Mirror)
+
+| Parameter | Value |
+|-----------|-------|
+| Type | HTML scraping (Google results via proxy) |
+| API | POST `startpage.com/sp/search` |
+| Limits | Implicit (IP-based) |
+| Key | Not required |
+| Intents | web, docs, news |
+
+**Features:**
+- Free Google results without API key
+- Uses `sc` code + preferences cookie for session
+- Extracts date from snippet prefix: `Jan 27, 2026` or `27 Jan 2026`
+- 1s delay between requests, incremental backoff on 429
+
+> **⚠️ Undocumented limits.** Startpage does not publish scraping limits. May return captcha or empty results without clear reason.
+
+**Configuration:**
+```env
+STARTPAGE_ENABLED=true
+```
+
+---
+
 ### DuckDuckGo
 
 | Parameter | Value |
@@ -18,14 +43,43 @@ Providers work with the router, which selects the first 2 healthy providers and 
 
 **Features:**
 - Free, no registration
-- 10 results per page, up to 2 pages = 20 raw results
+- 10 results per page, up to 1 page
+- 1s delay between requests
 - Rate limit with delay between requests
+
+> **⚠️ Undocumented limits.** DDG frequently returns captcha when scraping. No official search API — HTML parsing only.
 
 **Configuration:**
 ```env
 DDG_ENABLED=true
 DDG_DELAY_MS=1000
 DDG_MAX_PER_MINUTE=10
+```
+
+---
+
+### Brave Web
+
+| Parameter | Value |
+|-----------|-------|
+| Type | HTML scraping |
+| API | GET `search.brave.com/search` |
+| Limits | Implicit (IP-based, 429 on burst) |
+| Key | Not required |
+| Intents | web, docs, news |
+
+**Features:**
+- Free, no registration
+- 1s delay between requests
+- 429/403 detection → incremental backoff suspension
+- Cookies set: safesearch=off, useLocation=0, summarizer=0, country=us, ui_lang=en-us
+- Retry-After header support if Brave starts sending it
+
+> **⚠️ Undocumented limits.** Brave Search is not designed for scraping. Limits are not documented — may return 429 at any time. Brave API (official) is more stable but requires a key.
+
+**Configuration:**
+```env
+BRAVE_WEB_ENABLED=true
 ```
 
 ---
@@ -44,6 +98,9 @@ DDG_MAX_PER_MINUTE=10
 - Free, no registration
 - Parses `b_algo` blocks from HTML results page
 - Different index from DDG — expands coverage
+- 1s delay between requests
+
+> **⚠️ Undocumented limits.** Bing does not publish scraping limits. May return captcha under high request frequency. Most stable among scraped providers.
 
 **Configuration:**
 ```env
@@ -128,13 +185,13 @@ FIRECRAWL_API_KEY=...
 
 ```mermaid
 flowchart TD
-    START["Incoming Query"] --> HEALTH["Check health for first 2 providers"]
-    HEALTH --> PARALLEL["Call 2 healthy providers in parallel"]
+    START["Incoming Query"] --> HEALTH["Check health for first N providers (default 2)"]
+    HEALTH --> PARALLEL["Call N healthy providers in parallel (up to MAX_PARALLEL_PROVIDERS)"]
     PARALLEL --> MERGE["Merge + deduplicate results"]
     MERGE --> RERANK["Rerank by relevance score"]
     RERANK --> RETURN["Return top-N to orchestrator"]
     
-    HEALTH -->|"Fewer than 2 healthy"| FALLBACK["Use what's available"]
+    HEALTH -->|"Fewer than N healthy"| FALLBACK["Use what's available"]
     FALLBACK --> PARALLEL
     
     PARALLEL -->|"All failed"| FAIL["Return error: all providers failed"]
@@ -148,7 +205,7 @@ flowchart TD
 3. Aggregate results
 4. Reranker deduplicates by normalized URL and sorts
 
-**Default provider order:** DDG → Bing → Brave → Tavily → Exa → Firecrawl  
+**Default provider order:** Startpage → DDG → Brave Web → Bing → Brave API → Tavily → Exa → Firecrawl  
 Custom order via `PROVIDER_ORDER` in `.env` (comma-separated names).
 
 If one provider fails — results from the other are still returned (parallel mode). Sequential mode stops on first success.

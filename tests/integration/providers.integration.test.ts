@@ -3,9 +3,11 @@ import { config } from '../../src/utils/config.js';
 import { DuckDuckGoProvider } from '../../src/search/providers/duckduckgo.js';
 import { BingProvider } from '../../src/search/providers/bing.js';
 import { BraveProvider } from '../../src/search/providers/brave.js';
+import { BraveWebProvider } from '../../src/search/providers/brave-web.js';
 import { TavilyProvider } from '../../src/search/providers/tavily.js';
 import { ExaProvider } from '../../src/search/providers/exa.js';
 import { FirecrawlProvider } from '../../src/search/providers/firecrawl.js';
+import { StartpageProvider } from '../../src/search/providers/startpage.js';
 import type { ProviderResult } from '../../src/utils/types.js';
 
 const DATE_QUERY = '2026 web development trends';
@@ -31,7 +33,7 @@ function validateDateIfPresent(r: ProviderResult): boolean {
   return true;
 }
 
-function testProvider(name: string, factory: () => DuckDuckGoProvider | BingProvider | BraveProvider | TavilyProvider | ExaProvider | FirecrawlProvider): void {
+function testProvider(name: string, factory: () => DuckDuckGoProvider | BingProvider | BraveProvider | BraveWebProvider | StartpageProvider | TavilyProvider | ExaProvider | FirecrawlProvider): void {
   describe(name, () => {
     it('should return results with valid shape and log dates', { timeout: TIMEOUT }, async () => {
       const p = factory();
@@ -63,7 +65,10 @@ describe.concurrent('Provider Integration Tests', () => {
   (config.BING_ENABLED ? describe : describe.skip)('Bing (live)', () => {
     testProvider('results', () => new BingProvider());
   });
-  (config.BRAVE_API_KEY ? describe : describe.skip)('Brave (live)', () => {
+  (config.BRAVE_WEB_ENABLED ? describe : describe.skip)('Brave Web (live)', () => {
+    testProvider('results', () => new BraveWebProvider());
+  });
+  (config.BRAVE_API_KEY ? describe : describe.skip)('Brave API (live)', () => {
     testProvider('results', () => new BraveProvider());
   });
   (config.TAVILY_API_KEY ? describe : describe.skip)('Tavily (live)', () => {
@@ -74,5 +79,8 @@ describe.concurrent('Provider Integration Tests', () => {
   });
   (config.FIRECRAWL_API_KEY ? describe : describe.skip)('Firecrawl (live)', () => {
     testProvider('results', () => new FirecrawlProvider());
+  });
+  (config.STARTPAGE_ENABLED ? describe : describe.skip)('Startpage (live)', () => {
+    testProvider('results', () => new StartpageProvider());
   });
 });

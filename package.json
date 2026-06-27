@@ -1,6 +1,6 @@
 {
   "name": "search-mcp",
-  "version": "1.6.0",
+  "version": "1.8.0",
   "description": "MCP Search Server — unified search, GitHub search, and GitLab search tools with caching, reranking, and rate limits",
   "type": "module",
   "main": "dist/index.js",

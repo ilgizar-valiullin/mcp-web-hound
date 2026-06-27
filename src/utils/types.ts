@@ -60,6 +60,7 @@ export interface ProviderStats {
   avg_latency_ms: number;
   last_error?: string;
   healthy: boolean;
+  rate_limits?: ProviderRateUsage;
 }
 
 export interface ProviderHealth {
@@ -95,6 +96,41 @@ export interface BudgetCheckResult {
   message?: string;
 }
 
+export interface ProviderLimits {
+  rpm: number;
+  rpd: number;
+  rpmonth: number;
+}
+
+export interface RateLimitUsage {
+  used: number;
+  limit: number;
+  resets_at: string;
+}
+
+export interface ProviderRateUsage {
+  provider: string;
+  minute: RateLimitUsage;
+  day: RateLimitUsage;
+  month: RateLimitUsage;
+  last_request: string | null;
+}
+
+export interface RateLimitCheckResult {
+  allowed: boolean;
+  reason: string | null;
+  remaining: {
+    minute: number;
+    day: number;
+    month: number;
+  };
+  resets_at: {
+    minute: string;
+    day: string;
+    month: string;
+  };
+}
+
 export interface CacheStats {
   total_queries: number;
   total_results: number;
@@ -112,6 +148,7 @@ export interface StatusResponse {
     requests_today: number;
     limit_today: number | null;
     avg_latency_ms: number;
+    rate_limits: ProviderRateUsage;
   }>;
   cache: CacheStats;
   budget: {
@@ -131,17 +168,21 @@ export const ConfigSchema = z.object({
   DATA_DIR: z.string().default('./data'),
   DB_FILENAME: z.string().default('search.db'),
 
+
   // Providers — DuckDuckGo (scrape, free)
   DDG_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true),
   DDG_DELAY_MS: z.number().or(z.string().transform(Number)).default(1000),
   DDG_MAX_PER_MINUTE: z.number().or(z.string().transform(Number)).default(10),
   DDG_RESULTS_PER_PAGE: z.number().or(z.string().transform(Number)).default(10),
-  DDG_MAX_PAGES: z.number().or(z.string().transform(Number)).default(2),
+  DDG_MAX_PAGES: z.number().or(z.string().transform(Number)).default(1),
 
   // Providers — Bing (scrape, free)
-  BING_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(false),
+  BING_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true),
   BING_RESULTS_PER_PAGE: z.number().or(z.string().transform(Number)).default(10),
   BING_MAX_PAGES: z.number().or(z.string().transform(Number)).default(1),
+
+  // Providers — Startpage (scrape, free, Google results via proxy — google mirror)
+  STARTPAGE_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true),
 
   // Providers — Brave (API key)
   BRAVE_API_KEY: z.string().optional(),
@@ -163,8 +204,8 @@ export const ConfigSchema = z.object({
   // GitLab Search API (optional)
   GITLAB_TOKEN: z.string().optional(),
 
-  // Provider order (comma-separated, uses name field)
-  PROVIDER_ORDER: z.string().default('ddg,bing,brave,tavily,exa,firecrawl'),
+  // Provider order (comma-separated, uses name field — startpage is a Google mirror)
+  PROVIDER_ORDER: z.string().default('startpage,ddg,brave_web,bing,brave_api,tavily,exa,firecrawl'),
 
   // Parallel — how many providers to call simultaneously (applied in parallel mode only)
   MAX_PARALLEL_PROVIDERS: z.number().or(z.string().transform(Number)).default(2),
@@ -189,7 +230,7 @@ export const ConfigSchema = z.object({
   CACHE_TTL_MINUTES: z.number().or(z.string().transform(Number)).default(1440),
 
   // Semantic
-  SEMANTIC_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(false),
+  SEMANTIC_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true),
   EMBEDDING_MODEL: z.string().default('multilingual-e5-small'),
   EMBEDDING_DIMENSION: z.number().or(z.string().transform(Number)).default(384),
   SEMANTIC_THRESHOLD: z.number().or(z.string().transform(Number)).default(0.92),
@@ -200,6 +241,35 @@ export const ConfigSchema = z.object({
 
   // Reranking
   RERANK_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true),
+
+  // Providers — Brave Web (HTML scrape, no key)
+  BRAVE_WEB_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true),
+
+  // Provider rate limits (requests per window)
+  DDG_RPM: z.number().or(z.string().transform(Number)).default(10),
+  DDG_RPD: z.number().or(z.string().transform(Number)).default(200),
+  DDG_RPMONTH: z.number().or(z.string().transform(Number)).default(6000),
+  BING_RPM: z.number().or(z.string().transform(Number)).default(15),
+  BING_RPD: z.number().or(z.string().transform(Number)).default(60),
+  BING_RPMONTH: z.number().or(z.string().transform(Number)).default(1800),
+  STARTPAGE_RPM: z.number().or(z.string().transform(Number)).default(10),
+  STARTPAGE_RPD: z.number().or(z.string().transform(Number)).default(200),
+  STARTPAGE_RPMONTH: z.number().or(z.string().transform(Number)).default(6000),
+  BRAVE_RPM: z.number().or(z.string().transform(Number)).default(15),
+  BRAVE_RPD: z.number().or(z.string().transform(Number)).default(60),
+  BRAVE_RPMONTH: z.number().or(z.string().transform(Number)).default(2000),
+  BRAVE_WEB_RPM: z.number().or(z.string().transform(Number)).default(10),
+  BRAVE_WEB_RPD: z.number().or(z.string().transform(Number)).default(100),
+  BRAVE_WEB_RPMONTH: z.number().or(z.string().transform(Number)).default(6000),
+  TAVILY_RPM: z.number().or(z.string().transform(Number)).default(10),
+  TAVILY_RPD: z.number().or(z.string().transform(Number)).default(30),
+  TAVILY_RPMONTH: z.number().or(z.string().transform(Number)).default(1000),
+  EXA_RPM: z.number().or(z.string().transform(Number)).default(10),
+  EXA_RPD: z.number().or(z.string().transform(Number)).default(30),
+  EXA_RPMONTH: z.number().or(z.string().transform(Number)).default(1000),
+  FIRECRAWL_RPM: z.number().or(z.string().transform(Number)).default(5),
+  FIRECRAWL_RPD: z.number().or(z.string().transform(Number)).default(15),
+  FIRECRAWL_RPMONTH: z.number().or(z.string().transform(Number)).default(500),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

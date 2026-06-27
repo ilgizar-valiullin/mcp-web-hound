@@ -16,8 +16,10 @@ flowchart TD
     F -->|Cache HIT| G_CACHED[Return cached results]
     F -->|Cache MISS| G[Provider Router]
     G --> H1[Tier 1: DuckDuckGo]
+    G --> H1B[Tier 1: Startpage (Google mirror)]
     G --> H2[Tier 1: Bing]
-    G --> H3[Tier 2: Brave / Tavily]
+    G --> H2B[Tier 1: Brave Web (scrape)]
+    G --> H3[Tier 2: Brave API / Tavily]
     G --> H4[Tier 3: Exa / Firecrawl]
     H1 --> I[Result Aggregator]
     H2 --> I
@@ -85,13 +87,31 @@ Selects providers and manages fallback logic.
 
 **Responsibilities:**
 - Health-based provider selection
-- Parallel request to 2 healthy providers
+- Parallel request to 2-4 providers (configurable)
+- Per-provider rate limiting with 1s delay between requests
+- Incremental backoff suspension: 1min → 5min → 15min → 1h → 4h → 24h on 429/403 errors
 - Provider health tracking
-- Rate limit enforcement
 
 ### 7. Search Providers (`src/search/providers/`)
 
 Adapters for specific search engines. All implement the `SearchProvider` interface.
+
+| Provider | Type | Key | Tier |
+|----------|------|-----|------|
+| Startpage | HTML scrape (Google mirror) | No | 1 |
+| DuckDuckGo | HTML scrape | No | 1 |
+| Brave Web | HTML scrape | No | 1 |
+| Bing | HTML scrape | No | 1 |
+| Brave API | Official API | Yes (free: 2000/mo) | 2 |
+| Tavily | Official API | Yes (free: 1000/mo) | 2 |
+| Exa | Official API | Yes (trial: 1000) | 3 |
+| Firecrawl | Official API | Yes (trial: 500) | 3 |
+
+**Rate limiting:**
+- Each scraped provider enforces a 1-second delay between its own requests via a static `lastRequestTime`
+- On 429/403, the provider is suspended with incremental backoff: 1min → 5min → 15min → 1h → 4h → 24h
+- Consecutive failure counter resets after a successful request
+- Rate limit windows tracked per provider (minute/day/month) with JSON persistence
 
 ### 8. Intent Classifier (`src/search/intent-classifier.ts`)
 

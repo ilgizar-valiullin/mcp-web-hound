@@ -6,6 +6,8 @@ import { logger } from '../../utils/logger.js';
 const BING_SEARCH_URL = 'https://www.bing.com/search';
 const DESKTOP_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
+let lastRequestTime = 0;
+
 export class BingProvider extends BaseProvider {
   readonly name = 'Bing';
   readonly tier = 1 as const;
@@ -20,6 +22,12 @@ export class BingProvider extends BaseProvider {
   }
 
   async doSearch(query: string, options: ProviderOptions): Promise<ProviderResult[]> {
+    const elapsed = Date.now() - lastRequestTime;
+    if (elapsed < 1000) {
+      await new Promise(r => setTimeout(r, 1000 - elapsed));
+    }
+    lastRequestTime = Date.now();
+
     const allResults: ProviderResult[] = [];
     const needPages = Math.min(Math.ceil(options.max_results / this.resultsPerPage), this.maxPages);
 

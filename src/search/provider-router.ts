@@ -1,26 +1,37 @@
 import { SearchProvider } from './providers/base-provider.js';
 import { DuckDuckGoProvider } from './providers/duckduckgo.js';
 import { BingProvider } from './providers/bing.js';
+import { StartpageProvider } from './providers/startpage.js';
 import { BraveProvider } from './providers/brave.js';
+import { BraveWebProvider } from './providers/brave-web.js';
 import { TavilyProvider } from './providers/tavily.js';
 import { ExaProvider } from './providers/exa.js';
 import { FirecrawlProvider } from './providers/firecrawl.js';
 import { ProviderOptions, ProviderResult, ProviderStats } from '../utils/types.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
+import { RateLimitStore, classifyError } from '../limits/rate-limit-store.js';
 
 type ProviderFactory = () => SearchProvider;
 
 const PROVIDER_REGISTRY: Record<string, { factory: ProviderFactory; guard: () => boolean }> = {
-  ddg: {
+    ddg: {
     factory: () => new DuckDuckGoProvider(),
     guard: () => config.DDG_ENABLED,
   },
-  bing: {
-    factory: () => new BingProvider(),
-    guard: () => config.BING_ENABLED,
-  },
+    bing: {
+      factory: () => new BingProvider(),
+      guard: () => config.BING_ENABLED,
+    },
+    startpage: {
+      factory: () => new StartpageProvider(),
+      guard: () => config.STARTPAGE_ENABLED,
+    },
   brave: {
+    factory: () => new BraveWebProvider(),
+    guard: () => config.BRAVE_WEB_ENABLED,
+  },
+  brave_api: {
     factory: () => new BraveProvider(),
     guard: () => !!config.BRAVE_API_KEY,
   },
@@ -40,8 +51,10 @@ const PROVIDER_REGISTRY: Record<string, { factory: ProviderFactory; guard: () =>
 
 export class ProviderRouter {
   private providers: SearchProvider[] = [];
+  private rateLimitStore: RateLimitStore;
 
-  constructor() {
+  constructor(rateLimitStore: RateLimitStore) {
+    this.rateLimitStore = rateLimitStore;
     const order = config.PROVIDER_ORDER.split(',').map((s) => s.trim().toLowerCase());
     for (const name of order) {
       const entry = PROVIDER_REGISTRY[name];
@@ -69,9 +82,29 @@ export class ProviderRouter {
     return this.searchParallel(query, options, maxParallel);
   }
 
+  private providerKey(provider: SearchProvider): string {
+    const name = provider.name.toLowerCase();
+    if (name === 'duckduckgo') return 'ddg';
+    if (name === 'brave web') return 'brave_web';
+    if (name === 'brave') return 'brave_api';
+    return name;
+  }
+
+  private checkRateLimit(provider: SearchProvider): { allowed: boolean; reason?: string } {
+    const result = this.rateLimitStore.check(this.providerKey(provider));
+    if (!result.allowed) {
+      logger.warn({ provider: provider.name, reason: result.reason }, 'Provider rate limited');
+      return { allowed: false, reason: result.reason! };
+    }
+    return { allowed: true };
+  }
+
   private async searchSequential(query: string, options: ProviderOptions): Promise<ProviderResult[]> {
     for (const provider of this.providers) {
       try {
+        const rateCheck = this.checkRateLimit(provider);
+        if (!rateCheck.allowed) continue;
+
         const healthy = await provider.healthCheck();
         if (!healthy) {
           logger.warn({ provider: provider.name }, 'Provider unhealthy, skipping');
@@ -79,6 +112,7 @@ export class ProviderRouter {
         }
         logger.debug({ provider: provider.name, query }, 'Sequential search to provider');
         const results = await provider.search(query, options);
+        this.rateLimitStore.record(this.providerKey(provider));
         if (results && results.length > 0) {
           logger.info({ provider: provider.name, results: results.length }, 'Sequential provider returned results');
           return results;
@@ -86,6 +120,7 @@ export class ProviderRouter {
         logger.warn({ provider: provider.name }, 'Sequential provider returned empty results');
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err));
+        this.rateLimitStore.suspend(this.providerKey(provider), classifyError(e.message), e.message);
         logger.error({ err: e, provider: provider.name }, 'Sequential provider failed');
       }
     }
@@ -105,6 +140,12 @@ export class ProviderRouter {
       while (queue.length > 0) {
         const provider = queue.shift()!;
         try {
+          const rateCheck = this.checkRateLimit(provider);
+          if (!rateCheck.allowed) {
+            logger.warn({ provider: provider.name, reason: rateCheck.reason }, 'Rate limited, skipping provider');
+            continue;
+          }
+
           const healthy = await provider.healthCheck();
           if (!healthy) {
             logger.warn({ provider: provider.name }, 'Provider unhealthy, skipping');
@@ -112,6 +153,7 @@ export class ProviderRouter {
           }
           logger.debug({ provider: provider.name, query }, 'Routing search to provider');
           const results = await provider.search(query, options);
+          this.rateLimitStore.record(this.providerKey(provider));
           if (results && results.length > 0) {
             logger.info(
               { provider: provider.name, results: results.length },
@@ -123,7 +165,7 @@ export class ProviderRouter {
           logger.warn({ provider: provider.name }, 'Provider returned empty results');
         } catch (err) {
           const e = err instanceof Error ? err : new Error(String(err));
-          logger.error({ err: e, provider: provider.name }, 'Provider failed');
+          this.rateLimitStore.suspend(this.providerKey(provider), classifyError(e.message), e.message);
           lastError.push(e);
         }
       }
@@ -146,7 +188,17 @@ export class ProviderRouter {
   }
 
   getProviderStats(): ProviderStats[] {
-    return this.providers.map((p) => p.getStats());
+    return this.providers.map((p) => {
+      const usage = this.rateLimitStore.getUsage(this.providerKey(p));
+      return {
+        ...p.getStats(),
+        rate_limits: usage,
+      };
+    });
+  }
+
+  getRateLimitStore(): RateLimitStore {
+    return this.rateLimitStore;
   }
 
   getProviderCount(): number {

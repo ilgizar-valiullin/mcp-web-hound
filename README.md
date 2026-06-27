@@ -2,49 +2,55 @@
 
 > Unified MCP search tools for AI agents — abstracts providers, caching, reranking, and rate limits behind a few simple tools.
 
-## Tools
-
-| Tool | Purpose |
-|------|---------|
-| `search` | Universal web search with caching, reranking, and fallback across 6 providers |
-| `github_search` | Search GitHub repos, code, issues, and users |
-| `gitlab_search` | Search GitLab projects, issues, MRs, and code blobs |
-| `status` | Server diagnostics, provider health, budget state |
+> ⚠️ **Experimental.** This project is actively developed. APIs and defaults may change.
 
 ## Quick Start
 
 ```bash
-git clone <repo-url> search-mcp
-cd search-mcp
+git clone https://github.com/ilgizar-valiullin/mcp_search.git
+cd mcp_search
 npm install
 cp .env.example .env
 npm run build
-npm start
 ```
 
-## Configuration
+For OpenCode registration, system prompt setup, and other clients → see [Deployment Guide](docs/deployment-opencode.md).
 
-Copy `.env.example` to `.env` and set your API keys. No keys are required — DuckDuckGo and Bing work out of the box.
+If your agent has search instructions in other system prompts (e.g., `free-mode-prompt.md`, `CLAUDE.md`, `AGENTS.md`), remove them and rely solely on [`search-protocol.md`](search-protocol.md). Avoids conflicting instructions.
+
+> ⚠️ **`search-protocol.md` is in Testing Stage.** Adapt to your agent's behavior — it may change.
+
+## Provider Setup
+
+Edit `.env` — set API keys for optional providers. Startpage, DDG, Brave Web, and Bing work with zero config.
 
 | Provider | Key Required | Tier | Rate Limit |
 |----------|-------------|------|------------|
+| Startpage | No | 1 | — |
 | DuckDuckGo | No | 1 | 10 req/min |
+| Brave Web | No | 1 | — |
 | Bing | No | 1 | — |
-| Brave | `BRAVE_API_KEY` | 2 | 2000/month |
+| Brave API | `BRAVE_API_KEY` | 2 | 2000/month |
 | Tavily | `TAVILY_API_KEY` | 2 | 1000/month |
 | Exa | `EXA_API_KEY` | 3 | Trial |
 | Firecrawl | `FIRECRAWL_API_KEY` | 3 | Trial |
 
+## Tools
+
+| Tool | Purpose |
+|------|---------|
+| `search` | Universal web search with caching, reranking, and fallback across 8 providers |
+| `github_search` | Search GitHub repos, code, issues, and users |
+| `gitlab_search` | Search GitLab projects, issues, MRs, and code blobs |
+| `status` | Server diagnostics, provider health, budget state |
+
 ## Query Formats
 
-| Tool | Pattern | Example |
-|------|---------|---------|
-| `search` | General web search | `typescript tutorial`, `how to install docker` |
-| `search` | GitHub-oriented | `repo:vercel/next.js`, `stars:>1000 language:rust` |
-| `search` | Docs-oriented | `express api reference`, `docker compose guide` |
-| `search` | News-oriented | `react 19 release notes`, `latest ai news` |
-| `github_search` | Native GitHub search syntax | `repo:org/name`, `user:vercel`, `language:typescript` |
-| `gitlab_search` | Native GitLab search syntax | `project:org/name`, scope filter via `type` param |
+| Tool | Example |
+|------|---------|
+| `search` | `typescript tutorial`, `how to install docker`, `repo:vercel/next.js` |
+| `github_search` | `repo:org/name`, `user:vercel`, `language:typescript` |
+| `gitlab_search` | `project:org/name`, scope filter via `type` param |
 
 ## Tool Reference
 
@@ -56,21 +62,7 @@ search({
 })
 ```
 
-Returns merged results from the first 2 healthy providers (parallel), deduplicated and reranked by relevance.
-
-Intent classification runs automatically (no `intent` parameter). The server detects query intent
-(github / docs / news / web) via NLI zero-shot (DeBERTa-v3-xsmall).
-
-### NLI Reranking
-
-Every search result is scored against the query using the same NLI model:
-
-- **Model**: `Xenova/nli-deberta-v3-xsmall` (177M params, ONNX-optimized)
-- **Inference**: ~10–15ms per result on CPU, ~300ms for 20 results (parallelized)
-- **Score**: `0.9 * NLI(query, snippet) + 0.04 * domain + 0.03 * freshness + 0.03 * position`
-- **Config**: Override via `INTENT_CLASSIFIER_MODEL` in `.env`
-
-The NLI model loads lazily on first request and is shared between intent classification and reranking.
+Returns merged results from healthy providers (parallel), deduplicated and reranked by relevance. Optimized for AI agents — one parameter, server-side intent detection.
 
 ### `github_search`
 
@@ -110,7 +102,27 @@ Returns provider health, cache stats, budget state, uptime.
 
 [Pipeline](docs/diagrams/search-pipeline-flow.md)
 
-Core pipeline: `Budget Check → Normalize → Classify (intent + freshness) → Cache → Router (parallel 2) → Rerank → Cache → Respond`
+Core pipeline: `Budget Check → Normalize → Classify (intent + freshness) → Cache → Router (parallel N, 1s delay per provider) → Rerank → Cache → Respond`
+
+### Providers
+
+| Provider | Type | Key | Tier | Rate Limit | Delay | Suspension |
+|----------|------|-----|------|-----------|-------|------------|
+| Startpage | Google mirror (scrape) | No | 1 | — | 1s | incremental backoff |
+| DDG | HTML scrape | No | 1 | 10 req/min | 1s | captcha → 24h |
+| Brave Web | HTML scrape | No | 1 | — | 1s | 1min→5min→15min→1h→4h→24h |
+| Bing | HTML scrape | No | 1 | — | 1s | — |
+| Brave API | Official API | Yes | 2 | 2000/month | — | — |
+| Tavily | Official API | Yes | 2 | 1000/month | — | — |
+| Exa | Official API | Yes | 3 | trial 1000 | — | — |
+| Firecrawl | Official API | Yes | 3 | trial 500 | — | — |
+
+### Rate Limiting
+
+- **1-second delay** between requests per scraped provider (static `lastRequestTime`)
+- **Incremental backoff** on 429/403: suspension grows 1min → 5min → 15min → 1h → 4h → 24h
+- Counter resets on success
+- Rate limit windows (minute/day/month) persisted to JSON
 
 Full docs:
 - [Architecture](docs/architecture.md)
