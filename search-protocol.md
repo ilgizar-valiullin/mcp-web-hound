@@ -17,6 +17,7 @@ For technical specifics — API signatures, versions, errors, current data — c
 - Keywords only — strip natural language filler.
 - Exact quotes for unique error messages or code signatures.
 - For actively evolving APIs/frameworks, consider appending the year or "latest".
+- **Site-specific search:** prepend `site:example.com` to narrow results to a single domain.
 
 ## Tool Selection
 
