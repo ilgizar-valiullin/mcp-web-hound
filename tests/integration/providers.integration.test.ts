@@ -10,6 +10,7 @@ import { FirecrawlProvider } from '../../src/search/providers/firecrawl.js';
 import { StartpageProvider } from '../../src/search/providers/startpage.js';
 import type { ProviderResult } from '../../src/utils/types.js';
 
+const integration = process.env.RUN_INTEGRATION_TESTS ? describe : describe.skip;
 const DATE_QUERY = '2026 web development trends';
 const OPTIONS = { intent: 'web' as const, freshness: 'any' as const, max_results: 10 };
 const TIMEOUT = 30000;
@@ -59,28 +60,44 @@ function testProvider(name: string, factory: () => DuckDuckGoProvider | BingProv
 }
 
 describe.concurrent('Provider Integration Tests', () => {
-  (config.DDG_ENABLED ? describe : describe.skip)('DuckDuckGo (live)', () => {
-    testProvider('results', () => new DuckDuckGoProvider());
+  integration('DuckDuckGo (live)', () => {
+    (config.DDG_ENABLED ? describe : describe.skip)('results', () => {
+      testProvider('results', () => new DuckDuckGoProvider());
+    });
   });
-  (config.BING_ENABLED ? describe : describe.skip)('Bing (live)', () => {
-    testProvider('results', () => new BingProvider());
+  integration('Bing (live)', () => {
+    (config.BING_ENABLED ? describe : describe.skip)('results', () => {
+      testProvider('results', () => new BingProvider());
+    });
   });
-  (config.BRAVE_WEB_ENABLED ? describe : describe.skip)('Brave Web (live)', () => {
-    testProvider('results', () => new BraveWebProvider());
+  integration('Brave Web (live)', () => {
+    (config.BRAVE_WEB_ENABLED ? describe : describe.skip)('results', () => {
+      testProvider('results', () => new BraveWebProvider());
+    });
   });
-  (config.BRAVE_API_KEY ? describe : describe.skip)('Brave API (live)', () => {
-    testProvider('results', () => new BraveProvider());
+  integration('Brave API (live)', () => {
+    (config.BRAVE_API_KEY ? describe : describe.skip)('results', () => {
+      testProvider('results', () => new BraveProvider());
+    });
   });
-  (config.TAVILY_API_KEY ? describe : describe.skip)('Tavily (live)', () => {
-    testProvider('results', () => new TavilyProvider());
+  integration('Tavily (live)', () => {
+    (config.TAVILY_API_KEY ? describe : describe.skip)('results', () => {
+      testProvider('results', () => new TavilyProvider());
+    });
   });
-  (config.EXA_API_KEY ? describe : describe.skip)('Exa (live)', () => {
-    testProvider('results', () => new ExaProvider());
+  integration('Exa (live)', () => {
+    (config.EXA_API_KEY ? describe : describe.skip)('results', () => {
+      testProvider('results', () => new ExaProvider());
+    });
   });
-  (config.FIRECRAWL_API_KEY ? describe : describe.skip)('Firecrawl (live)', () => {
-    testProvider('results', () => new FirecrawlProvider());
+  integration('Firecrawl (live)', () => {
+    (config.FIRECRAWL_API_KEY ? describe : describe.skip)('results', () => {
+      testProvider('results', () => new FirecrawlProvider());
+    });
   });
-  (config.STARTPAGE_ENABLED ? describe : describe.skip)('Startpage (live)', () => {
-    testProvider('results', () => new StartpageProvider());
+  integration('Startpage (live)', () => {
+    (config.STARTPAGE_ENABLED ? describe : describe.skip)('results', () => {
+      testProvider('results', () => new StartpageProvider());
+    });
   });
 });

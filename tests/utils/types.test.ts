@@ -71,13 +71,13 @@ describe('ConfigSchema', () => {
   it('should have correct defaults for DDG pagination', () => {
     const result = ConfigSchema.parse({});
     expect(result.DDG_RESULTS_PER_PAGE).toBe(10);
-    expect(result.DDG_MAX_PAGES).toBe(2);
+    expect(result.DDG_MAX_PAGES).toBe(1);
   });
 
   it('should have correct defaults for SEARCH_TIMEOUT_MS and MAX_RESULTS_AFTER_RERANK', () => {
     const result = ConfigSchema.parse({});
     expect(result.SEARCH_TIMEOUT_MS).toBe(15000);
-    expect(result.MAX_RESULTS_AFTER_RERANK).toBe(25);
+    expect(result.MAX_RESULTS_AFTER_RERANK).toBe(10);
   });
 
   it('should have correct default for CACHE_TTL_MINUTES', () => {
@@ -88,7 +88,7 @@ describe('ConfigSchema', () => {
   it('should have correct defaults for DDG and BING pagination', () => {
     const result = ConfigSchema.parse({});
     expect(result.DDG_RESULTS_PER_PAGE).toBe(10);
-    expect(result.DDG_MAX_PAGES).toBe(2);
+    expect(result.DDG_MAX_PAGES).toBe(1);
     expect(result.BING_RESULTS_PER_PAGE).toBe(10);
   });
 

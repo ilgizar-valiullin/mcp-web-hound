@@ -1,6 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import { BingProvider } from '../../../src/search/providers/bing.js';
 import { ProviderOptions } from '../../../src/utils/types.js';
+
+beforeAll(() => {
+  process.env.TZ = 'UTC';
+});
 
 vi.mock('../../../src/utils/config.js', () => ({
   config: {
@@ -69,8 +73,8 @@ describe('BingProvider', () => {
       expect(results[0].published_date).toBeUndefined();
 
       // Has date → ISO string
-      expect(results[1].published_date).toBe('2026-05-01T18:00:00.000Z');
-      expect(results[2].published_date).toBe('2024-01-14T18:00:00.000Z');
+      expect(results[1].published_date).toBe('2026-05-02T00:00:00.000Z');
+      expect(results[2].published_date).toBe('2024-01-15T00:00:00.000Z');
     });
 
     it('should strip date prefix from snippet', () => {
