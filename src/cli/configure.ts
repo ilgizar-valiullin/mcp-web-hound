@@ -253,7 +253,6 @@ function prepareEnv(silent?: boolean): void {
 }
 
 function applyChanges(env: Record<string, string>, changes: Map<string, string>, silent?: boolean): void {
-  const wasMissing = !existsSync(ENV_PATH);
   prepareEnv(true);
 
   const merged = { ...env };
@@ -263,76 +262,46 @@ function applyChanges(env: Record<string, string>, changes: Map<string, string>,
   const lines = existing.split('\n');
   const seen = new Set<string>();
 
-  if (wasMissing) {
-    // Fresh from default.env — uncomment keys that user set, keep others commented
-    const out: string[] = [];
-    for (const line of lines) {
-      const t = line.trimEnd();
-      const match = t.match(/^#\s*([A-Z][A-Z0-9_]*)=/);
-      if (match) {
-        const key = match[1];
-        seen.add(key);
-        if (key in merged && merged[key]) {
-          out.push(`${key}=${merged[key]}`);
-        } else {
-          out.push(t);
-        }
+  const out: string[] = [];
+  for (const line of lines) {
+    const t = line.trimEnd();
+    const eq = t.indexOf('=');
+
+    // Active KEY=VALUE line
+    if (eq > 0 && !t.startsWith('#')) {
+      const key = t.slice(0, eq).trim();
+      seen.add(key);
+      const newVal = merged[key];
+      out.push(newVal && newVal !== '' ? `${key}=${newVal}` : t);
+      continue;
+    }
+
+    // Commented line like "# KEY=VALUE" — uncomment if key has a non-empty value
+    const commentMatch = t.match(/^#\s*([A-Z][A-Z0-9_]*)=/);
+    if (commentMatch) {
+      const key = commentMatch[1];
+      seen.add(key);
+      const newVal = merged[key];
+      if (newVal && newVal !== '') {
+        out.push(`${key}=${newVal}`);
       } else {
         out.push(t);
       }
+      continue;
     }
-    for (const [key, val] of Object.entries(merged)) {
-      if (!seen.has(key) && val) {
-        out.push(`${key}=${val}`);
-      }
-    }
-    out.push('');
-    const tmp = ENV_PATH + '.tmp';
-    writeFileSync(tmp, out.join('\n'), 'utf-8');
-    renameSync(tmp, ENV_PATH);
-  } else {
-    // Existing file — update values in place, uncomment if needed, preserve formatting
-    const out: string[] = [];
-    for (const line of lines) {
-      const t = line.trimEnd();
-      const eq = t.indexOf('=');
 
-      // Active KEY=VALUE line
-      if (eq > 0 && !t.startsWith('#')) {
-        const key = t.slice(0, eq).trim();
-        seen.add(key);
-        const newVal = merged[key];
-        out.push(newVal && newVal !== '' ? `${key}=${newVal}` : t);
-        continue;
-      }
-
-      // Commented line like "# KEY=VALUE" — uncomment if key is in changes
-      const commentMatch = t.match(/^#\s*([A-Z][A-Z0-9_]*)=/);
-      if (commentMatch) {
-        const key = commentMatch[1];
-        seen.add(key);
-        const newVal = merged[key];
-        if (newVal && newVal !== '') {
-          out.push(`${key}=${newVal}`);
-        } else {
-          out.push(t);
-        }
-        continue;
-      }
-
-      // Pure comment, section header, or empty line
-      out.push(t);
-    }
-    for (const [key, val] of Object.entries(merged)) {
-      if (!seen.has(key) && val) {
-        out.push(`${key}=${val}`);
-      }
-    }
-    out.push('');
-    const tmp = ENV_PATH + '.tmp';
-    writeFileSync(tmp, out.join('\n'), 'utf-8');
-    renameSync(tmp, ENV_PATH);
+    // Pure comment, section header, or empty line
+    out.push(t);
   }
+  for (const [key, val] of Object.entries(merged)) {
+    if (!seen.has(key) && val) {
+      out.push(`${key}=${val}`);
+    }
+  }
+  out.push('');
+  const tmp = ENV_PATH + '.tmp';
+  writeFileSync(tmp, out.join('\n'), 'utf-8');
+  renameSync(tmp, ENV_PATH);
 
   if (!silent) {
     stdout.write(clr(`\n  ✓ Saved to ${ENV_PATH}\n\n`, C.green + C.bold));
