@@ -1,4 +1,4 @@
-# Search MCP Server
+# MCP Web Hound
 
 > Unified MCP search tools for AI agents — abstracts providers, caching, reranking, and rate limits behind a few simple tools.
 
@@ -7,22 +7,48 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/ilgizar-valiullin/mcp_search.git
-cd mcp_search
+# Run with npx (no install needed)
+npx mcp-web-hound --help
+
+# Or clone for local development
+git clone https://github.com/ilgizar-valiullin/mcp-web-hound.git
+cd mcp-web-hound
 npm install
 cp .env.example .env
 npm run build
 ```
 
-For OpenCode registration, system prompt setup, and other clients → see [Deployment Guide](docs/deployment-opencode.md).
+Configure API keys via the interactive tool:
 
-If your agent has search instructions in other system prompts (e.g., `free-mode-prompt.md`, `CLAUDE.md`, `AGENTS.md`), remove them and rely solely on [`search-protocol.md`](search-protocol.md). Avoids conflicting instructions.
+```bash
+npx mcp-web-hound-configure
+```
 
-> ⚠️ **`search-protocol.md` is in Testing Stage.** Adapt to your agent's behavior — it may change.
+## OpenCode Setup
+
+Add to `~/.config/opencode/opencode.json` under `mcp`:
+
+```json
+"web_search": {
+  "type": "local",
+  "command": ["npx.cmd", "-y", "mcp-web-hound"],
+  "enabled": true
+}
+```
+
+Or via CLI:
+
+```bash
+opencode mcp add web_search -- npx.cmd -y mcp-web-hound
+```
+
+For other clients and advanced setup → see [Deployment Guide](docs/deployment-opencode.md).
+
+> ⚠️ **Search protocol** is embedded in the MCP server's `InitializeResult.instructions` and auto-injected into agent context on OpenCode v1.17.10+. For older versions, see the deployment guide.
 
 ## Provider Setup
 
-Edit `.env` — set API keys for optional providers. Startpage, DDG, Brave Web, and Bing work with zero config.
+Use `mcp-web-hound-configure` to set API keys. Startpage, DDG, Brave Web, and Bing work with zero config.
 
 | Provider | Key Required | Tier | Rate Limit |
 |----------|-------------|------|------------|
@@ -39,7 +65,7 @@ Edit `.env` — set API keys for optional providers. Startpage, DDG, Brave Web, 
 
 | Tool | Purpose |
 |------|---------|
-| `search` | Universal web search with caching, reranking, and fallback across 8 providers |
+| `web_search` | Universal web search (registered as `web_search`) with caching, reranking, and fallback across 8 providers |
 | `github_search` | Search GitHub repos, code, issues, and users |
 | `gitlab_search` | Search GitLab projects, issues, MRs, and code blobs |
 | `status` | Server diagnostics, provider health, budget state |
@@ -48,16 +74,16 @@ Edit `.env` — set API keys for optional providers. Startpage, DDG, Brave Web, 
 
 | Tool | Example |
 |------|---------|
-| `search` | `typescript tutorial`, `how to install docker`, `repo:vercel/next.js` |
+| `web_search` | `typescript tutorial`, `how to install docker`, `repo:vercel/next.js` |
 | `github_search` | `repo:org/name`, `user:vercel`, `language:typescript` |
 | `gitlab_search` | `project:org/name`, scope filter via `type` param |
 
 ## Tool Reference
 
-### `search`
+### `web_search`
 
 ```typescript
-search({
+web_search({
   query: string,
 })
 ```

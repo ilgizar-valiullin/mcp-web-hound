@@ -138,22 +138,22 @@ class DeduplicationBuffer {
 ### Example
 
 ```
-[14:00:01] search("opencode plugins")
+[14:00:01] web_search("opencode plugins")
   → Budget: 1/15 searches
   → Providers: DDG → 10 results
   → Cached under key "abc123"
 
-[14:00:15] search("opencode plugin docs")
+[14:00:15] web_search("opencode plugin docs")
   → Embedding similarity with "opencode plugins": 0.94
   → DEDUPLICATED → return cached results for "abc123"
   → Budget: still 1/15 (not counted)
 
-[14:00:30] search("opencode plugin documentation")
+[14:00:30] web_search("opencode plugin documentation")
   → Embedding similarity with "opencode plugins": 0.93
   → DEDUPLICATED → return cached results for "abc123"
   → Budget: still 1/15 (not counted)
 
-[14:01:00] search("vscode extensions api")
+[14:01:00] web_search("vscode extensions api")
   → Embedding similarity with all recent: max 0.45
   → UNIQUE → send to providers
   → Budget: 2/15 searches

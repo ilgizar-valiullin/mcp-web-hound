@@ -1,11 +1,24 @@
 {
-  "name": "search-mcp",
-  "version": "1.8.0",
-  "description": "MCP Search Server — unified search, GitHub search, and GitLab search tools with caching, reranking, and rate limits",
+  "name": "mcp-web-hound",
+  "version": "1.9.3",
+  "description": "MCP Web Hound — unified web search, GitHub search, and GitLab search tools with caching, reranking, and rate limits",
   "type": "module",
   "main": "dist/index.js",
+  "bin": {
+    "mcp-web-hound": "./dist/index.js",
+    "mcp-web-hound-configure": "./dist/cli/configure.js"
+  },
+  "preferGlobal": true,
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE",
+    "default.env"
+  ],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "configure": "node dist/cli/configure.js",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
@@ -24,6 +37,10 @@
     "duckduckgo"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ilgizar-valiullin/mcp-web-hound.git"
+  },
   "engines": {
     "node": ">=20.0.0"
   },

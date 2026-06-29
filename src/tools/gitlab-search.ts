@@ -54,7 +54,7 @@ export function registerGitLabSearchTool(server: McpServer): void {
   server.registerTool(
     'gitlab_search',
     {
-      description: 'Search GitLab projects, issues, merge requests, or code (blobs)',
+      description: 'Search GitLab projects, issues, merge requests, or code (blobs). Prefer for GitLab repos, code patterns, and real-world usage examples.',
       inputSchema: schema,
     },
     async (args) => {
@@ -70,7 +70,7 @@ export function registerGitLabSearchTool(server: McpServer): void {
         url.searchParams.set('page', String(page));
 
         const headers: Record<string, string> = {
-          'User-Agent': 'search-mcp/1.0',
+          'User-Agent': 'mcp-web-hound/1.0',
         };
 
         if (config.GITLAB_TOKEN) {

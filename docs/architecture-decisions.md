@@ -33,7 +33,7 @@ The whole thing is a single Node.js process — one `npx build`, one `node dist/
 ## Stage 1 — MVP (V1)
 
 ### Goal
-A working MCP search tool — agent calls `search()`, gets results back. One provider, basic cache, no frills.
+A working MCP search tool — agent calls `web_search()`, gets results back. One provider, basic cache, no frills.
 
 ### Architecture
 
@@ -140,7 +140,7 @@ In V2, the agent passed `freshness: "day" | "week" | "month" | "any"`. This was 
 | **Freshness scoring** | `requiresFreshness=false` → 3-year plateau at 1.0, then gradual decay. Protects fundamental knowledge (algorithms, API refs). `requiresFreshness=true` → 1-month plateau, then steep decay. Suits news/releases. |
 | **Missing date → 1.0** | No `published_date`? Score 1.0. Never penalise a result for lacking metadata. |
 | **Fixed formula** | `0.9*NLI + 0.04*domain + 0.03*freshness + 0.03*position`. Same weights for all intents. Intent-specific weights were over-engineering for zero measurable gain. |
-| **No intent/freshness in tool schema** | Agent calls `search({ query })`. That's it. Everything else is server-side. |
+| **No intent/freshness in tool schema** | Agent calls `web_search({ query })`. That's it. Everything else is server-side. |
 
 ### Freshness curve
 

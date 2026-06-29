@@ -32,4 +32,4 @@ git push --follow-tags
 
 ## Current
 
-`1.1.0` — config overhaul: provider order, parallel/sequential mode, per-provider pagination limits, search timeout, max results after rerank, browser UA for fetch, SEARXNG removed.
+`1.9.3` — npm publish workflow, README inline setup, preferGlobal, default.env with all fields.

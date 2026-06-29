@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Shared Types for Search MCP Server
+ * Shared Types for MCP Web Hound Server
  */
 
 // --- Input Schemas ---
@@ -29,6 +29,7 @@ export interface SearchMeta {
   cached: boolean;
   query_normalized: string;
   search_time_ms: number;
+  session_deduped_count: number;
 }
 
 export interface SearchResponse {
@@ -161,115 +162,158 @@ export interface StatusResponse {
 }
 
 // --- Config ---
+// The single source for all configuration.
+// Add `.describe()` to user-facing fields for automatic docs/help/logging.
 
 export const ConfigSchema = z.object({
-  // General
-  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
-  DATA_DIR: z.string().default('./data'),
-  DB_FILENAME: z.string().default('search.db'),
+  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info')
+    .describe('Logging verbosity'),
+  DATA_DIR: z.string().default('./data')
+    .describe('Directory for cache database (relative paths resolve from CWD)'),
+  DB_FILENAME: z.string().default('search.db')
+    .describe('SQLite database file name inside DATA_DIR'),
 
+  // --- Providers (free, no key) ---
+  DDG_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
+    .describe('Enable DuckDuckGo search (free, no key)'),
+  BING_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
+    .describe('Enable Bing search (free, no key)'),
+  STARTPAGE_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
+    .describe('Enable Startpage / Google mirror (free, no key)'),
+  BRAVE_WEB_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
+    .describe('Enable Brave Web HTML scrape (free, no key)'),
 
-  // Providers — DuckDuckGo (scrape, free)
-  DDG_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true),
-  DDG_DELAY_MS: z.number().or(z.string().transform(Number)).default(1000),
-  DDG_MAX_PER_MINUTE: z.number().or(z.string().transform(Number)).default(10),
-  DDG_RESULTS_PER_PAGE: z.number().or(z.string().transform(Number)).default(10),
-  DDG_MAX_PAGES: z.number().or(z.string().transform(Number)).default(1),
+  // --- API keys (premium providers) ---
+  BRAVE_API_KEY: z.string().optional()
+    .describe('API key for Brave Search API (2000 queries/month free)'),
+  BRAVE_DAILY_LIMIT: z.number().or(z.string().transform(Number)).default(60)
+    .describe('Max Brave Search API queries per day'),
+  TAVILY_API_KEY: z.string().optional()
+    .describe('API key for Tavily Search (1000 queries/month free)'),
+  TAVILY_DAILY_LIMIT: z.number().or(z.string().transform(Number)).default(30)
+    .describe('Max Tavily queries per day'),
+  EXA_API_KEY: z.string().optional()
+    .describe('API key for Exa Search (trial 1000 queries)'),
+  FIRECRAWL_API_KEY: z.string().optional()
+    .describe('API key for Firecrawl (trial 500 credits)'),
 
-  // Providers — Bing (scrape, free)
-  BING_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true),
-  BING_RESULTS_PER_PAGE: z.number().or(z.string().transform(Number)).default(10),
-  BING_MAX_PAGES: z.number().or(z.string().transform(Number)).default(1),
+  // --- Tokens ---
+  GITHUB_TOKEN: z.string().optional()
+    .describe('GitHub personal access token (optional, 60 req/hr without)'),
+  GITLAB_TOKEN: z.string().optional()
+    .describe('GitLab personal access token with read_api scope'),
 
-  // Providers — Startpage (scrape, free, Google results via proxy — google mirror)
-  STARTPAGE_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true),
+  // --- Behavior ---
+  PROVIDER_ORDER: z.string().default('startpage,ddg,brave_web,bing,brave_api,tavily,exa,firecrawl')
+    .describe('Comma-separated provider priority list (tried top to bottom)'),
+  MAX_PARALLEL_PROVIDERS: z.number().or(z.string().transform(Number)).default(2)
+    .describe('Max providers to query simultaneously'),
+  PROVIDER_EXECUTION_MODE: z.enum(['parallel', 'sequential']).default('parallel')
+    .describe('Run providers in parallel or fall through one by one'),
+  MAX_RESULTS_AFTER_RERANK: z.number().or(z.string().transform(Number)).default(10)
+    .describe('Max results returned after reranking'),
+  SEARCH_TIMEOUT_MS: z.number().or(z.string().transform(Number)).default(15000)
+    .describe('Per-provider search timeout in milliseconds'),
 
-  // Providers — Brave (API key)
-  BRAVE_API_KEY: z.string().optional(),
-  BRAVE_DAILY_LIMIT: z.number().or(z.string().transform(Number)).default(60),
+  // --- Budget limits ---
+  BUDGET_MAX_SEARCHES: z.number().or(z.string().transform(Number)).default(15)
+    .describe('Max searches allowed per budget window'),
+  BUDGET_MAX_FETCHES: z.number().or(z.string().transform(Number)).default(30)
+    .describe('Max page fetches allowed per budget window'),
+  BUDGET_WINDOW_MINUTES: z.number().or(z.string().transform(Number)).default(30)
+    .describe('Budget window duration in minutes'),
 
-  // Providers — Tavily (API key)
-  TAVILY_API_KEY: z.string().optional(),
-  TAVILY_DAILY_LIMIT: z.number().or(z.string().transform(Number)).default(30),
+  // --- Cache ---
+  CACHE_MAX_SIZE_MB: z.number().or(z.string().transform(Number)).default(500)
+    .describe('Max cache database size in MB (0 = unlimited)'),
+  CACHE_EVICTION_INTERVAL_MIN: z.number().or(z.string().transform(Number)).default(30)
+    .describe('Interval between automatic cache size checks (minutes)'),
+  CACHE_TTL_MINUTES: z.number().or(z.string().transform(Number)).default(1440)
+    .describe('Cache entry time-to-live in minutes (1440 = 24h)'),
 
-  // Providers — Exa (API key, trial 1000)
-  EXA_API_KEY: z.string().optional(),
+  // --- Features ---
+  SEMANTIC_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
+    .describe('Enable semantic search with embeddings (~120MB model download)'),
+  EMBEDDING_MODEL: z.string().default('multilingual-e5-small')
+    .describe('HuggingFace model for text embeddings'),
+  EMBEDDING_DIMENSION: z.number().or(z.string().transform(Number)).default(384)
+    .describe('Embedding vector dimension (must match model output)'),
+  SEMANTIC_THRESHOLD: z.number().or(z.string().transform(Number)).default(0.92)
+    .describe('Cosine similarity threshold for semantic dedup'),
+  INTENT_CLASSIFIER_MODEL: z.string().default('Xenova/nli-deberta-v3-xsmall')
+    .describe('HuggingFace model for NLI-based intent classification'),
+  RERANK_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
+    .describe('Enable cross-encoder reranking for result relevance'),
 
-  // Providers — Firecrawl (API key, trial 500 credits)
-  FIRECRAWL_API_KEY: z.string().optional(),
+  // --- Session ---
+  SESSION_DEDUP_WINDOW_MINUTES: z.number().or(z.string().transform(Number)).default(5)
+    .describe('Window in minutes for deduplicating identical queries'),
+  SESSION_DEDUP_STRETCH_MINUTES: z.number().or(z.string().transform(Number)).default(0)
+    .describe('Extra minutes to extend dedup window on new activity'),
 
-  // GitHub Search API (optional, without token: 60 req/hr)
-  GITHUB_TOKEN: z.string().optional(),
+  // --- Provider tuning ---
+  DDG_DELAY_MS: z.number().or(z.string().transform(Number)).default(1000)
+    .describe('Delay between DuckDuckGo requests in milliseconds'),
+  DDG_MAX_PER_MINUTE: z.number().or(z.string().transform(Number)).default(10)
+    .describe('Max DuckDuckGo requests per minute'),
+  DDG_RESULTS_PER_PAGE: z.number().or(z.string().transform(Number)).default(10)
+    .describe('DuckDuckGo results per page'),
+  DDG_MAX_PAGES: z.number().or(z.string().transform(Number)).default(1)
+    .describe('Max DuckDuckGo pages to scrape'),
+  BING_RESULTS_PER_PAGE: z.number().or(z.string().transform(Number)).default(10)
+    .describe('Bing results per page'),
+  BING_MAX_PAGES: z.number().or(z.string().transform(Number)).default(1)
+    .describe('Max Bing pages to scrape'),
 
-  // GitLab Search API (optional)
-  GITLAB_TOKEN: z.string().optional(),
-
-  // Provider order (comma-separated, uses name field — startpage is a Google mirror)
-  PROVIDER_ORDER: z.string().default('startpage,ddg,brave_web,bing,brave_api,tavily,exa,firecrawl'),
-
-  // Parallel — how many providers to call simultaneously (applied in parallel mode only)
-  MAX_PARALLEL_PROVIDERS: z.number().or(z.string().transform(Number)).default(2),
-
-  // Execution mode: 'parallel' — call providers concurrently, 'sequential' — stop on first success
-  PROVIDER_EXECUTION_MODE: z.enum(['parallel', 'sequential']).default('parallel'),
-
-  // Final results — how many results returned to agent after reranking
-  MAX_RESULTS_AFTER_RERANK: z.number().or(z.string().transform(Number)).default(10),
-
-  // Search timeout — total time budget for one search() call
-  SEARCH_TIMEOUT_MS: z.number().or(z.string().transform(Number)).default(15000),
-
-  // Budget
-  BUDGET_MAX_SEARCHES: z.number().or(z.string().transform(Number)).default(15),
-  BUDGET_MAX_FETCHES: z.number().or(z.string().transform(Number)).default(30),
-  BUDGET_WINDOW_MINUTES: z.number().or(z.string().transform(Number)).default(30),
-
-  // Cache
-  CACHE_MAX_SIZE_MB: z.number().or(z.string().transform(Number)).default(500),
-  CACHE_EVICTION_INTERVAL_MIN: z.number().or(z.string().transform(Number)).default(30),
-  CACHE_TTL_MINUTES: z.number().or(z.string().transform(Number)).default(1440),
-
-  // Semantic
-  SEMANTIC_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true),
-  EMBEDDING_MODEL: z.string().default('multilingual-e5-small'),
-  EMBEDDING_DIMENSION: z.number().or(z.string().transform(Number)).default(384),
-  SEMANTIC_THRESHOLD: z.number().or(z.string().transform(Number)).default(0.92),
-
-  // Intent classification — server-side auto-classifies query intent (github/docs/news/web)
-  // when enabled. When disabled, the agent provides `intent` in the search request.
-  INTENT_CLASSIFIER_MODEL: z.string().default('Xenova/nli-deberta-v3-xsmall'),
-
-  // Reranking
-  RERANK_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true),
-
-  // Providers — Brave Web (HTML scrape, no key)
-  BRAVE_WEB_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true),
-
-  // Provider rate limits (requests per window)
-  DDG_RPM: z.number().or(z.string().transform(Number)).default(10),
-  DDG_RPD: z.number().or(z.string().transform(Number)).default(200),
-  DDG_RPMONTH: z.number().or(z.string().transform(Number)).default(6000),
-  BING_RPM: z.number().or(z.string().transform(Number)).default(15),
-  BING_RPD: z.number().or(z.string().transform(Number)).default(60),
-  BING_RPMONTH: z.number().or(z.string().transform(Number)).default(1800),
-  STARTPAGE_RPM: z.number().or(z.string().transform(Number)).default(10),
-  STARTPAGE_RPD: z.number().or(z.string().transform(Number)).default(200),
-  STARTPAGE_RPMONTH: z.number().or(z.string().transform(Number)).default(6000),
-  BRAVE_RPM: z.number().or(z.string().transform(Number)).default(15),
-  BRAVE_RPD: z.number().or(z.string().transform(Number)).default(60),
-  BRAVE_RPMONTH: z.number().or(z.string().transform(Number)).default(2000),
-  BRAVE_WEB_RPM: z.number().or(z.string().transform(Number)).default(10),
-  BRAVE_WEB_RPD: z.number().or(z.string().transform(Number)).default(100),
-  BRAVE_WEB_RPMONTH: z.number().or(z.string().transform(Number)).default(6000),
-  TAVILY_RPM: z.number().or(z.string().transform(Number)).default(10),
-  TAVILY_RPD: z.number().or(z.string().transform(Number)).default(30),
-  TAVILY_RPMONTH: z.number().or(z.string().transform(Number)).default(1000),
-  EXA_RPM: z.number().or(z.string().transform(Number)).default(10),
-  EXA_RPD: z.number().or(z.string().transform(Number)).default(30),
-  EXA_RPMONTH: z.number().or(z.string().transform(Number)).default(1000),
-  FIRECRAWL_RPM: z.number().or(z.string().transform(Number)).default(5),
-  FIRECRAWL_RPD: z.number().or(z.string().transform(Number)).default(15),
-  FIRECRAWL_RPMONTH: z.number().or(z.string().transform(Number)).default(500),
+  // --- Per-provider rate limits ---
+  DDG_RPM: z.number().or(z.string().transform(Number)).default(10)
+    .describe('DuckDuckGo max requests per minute'),
+  DDG_RPD: z.number().or(z.string().transform(Number)).default(200)
+    .describe('DuckDuckGo max requests per day'),
+  DDG_RPMONTH: z.number().or(z.string().transform(Number)).default(6000)
+    .describe('DuckDuckGo max requests per month'),
+  BING_RPM: z.number().or(z.string().transform(Number)).default(15)
+    .describe('Bing max requests per minute'),
+  BING_RPD: z.number().or(z.string().transform(Number)).default(60)
+    .describe('Bing max requests per day'),
+  BING_RPMONTH: z.number().or(z.string().transform(Number)).default(1800)
+    .describe('Bing max requests per month'),
+  STARTPAGE_RPM: z.number().or(z.string().transform(Number)).default(10)
+    .describe('Startpage max requests per minute'),
+  STARTPAGE_RPD: z.number().or(z.string().transform(Number)).default(200)
+    .describe('Startpage max requests per day'),
+  STARTPAGE_RPMONTH: z.number().or(z.string().transform(Number)).default(6000)
+    .describe('Startpage max requests per month'),
+  BRAVE_RPM: z.number().or(z.string().transform(Number)).default(15)
+    .describe('Brave Search API max requests per minute'),
+  BRAVE_RPD: z.number().or(z.string().transform(Number)).default(60)
+    .describe('Brave Search API max requests per day'),
+  BRAVE_RPMONTH: z.number().or(z.string().transform(Number)).default(2000)
+    .describe('Brave Search API max requests per month'),
+  BRAVE_WEB_RPM: z.number().or(z.string().transform(Number)).default(10)
+    .describe('Brave Web scrape max requests per minute'),
+  BRAVE_WEB_RPD: z.number().or(z.string().transform(Number)).default(100)
+    .describe('Brave Web scrape max requests per day'),
+  BRAVE_WEB_RPMONTH: z.number().or(z.string().transform(Number)).default(6000)
+    .describe('Brave Web scrape max requests per month'),
+  TAVILY_RPM: z.number().or(z.string().transform(Number)).default(10)
+    .describe('Tavily max requests per minute'),
+  TAVILY_RPD: z.number().or(z.string().transform(Number)).default(30)
+    .describe('Tavily max requests per day'),
+  TAVILY_RPMONTH: z.number().or(z.string().transform(Number)).default(1000)
+    .describe('Tavily max requests per month'),
+  EXA_RPM: z.number().or(z.string().transform(Number)).default(10)
+    .describe('Exa max requests per minute'),
+  EXA_RPD: z.number().or(z.string().transform(Number)).default(30)
+    .describe('Exa max requests per day'),
+  EXA_RPMONTH: z.number().or(z.string().transform(Number)).default(1000)
+    .describe('Exa max requests per month'),
+  FIRECRAWL_RPM: z.number().or(z.string().transform(Number)).default(5)
+    .describe('Firecrawl max requests per minute'),
+  FIRECRAWL_RPD: z.number().or(z.string().transform(Number)).default(15)
+    .describe('Firecrawl max requests per day'),
+  FIRECRAWL_RPMONTH: z.number().or(z.string().transform(Number)).default(500)
+    .describe('Firecrawl max requests per month'),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

@@ -59,7 +59,11 @@ flowchart TD
     U --> V[Sort by final_score DESC]
     V --> W[Truncate to MAX_RESULTS_AFTER_RERANK]
 
-    W --> Y[Save to caches]
+    W --> SD_SESSION{Session dedup enabled?}
+    SD_SESSION -->|Yes| SD_CHECK["Filter: skip URLs seen in current session,<br/>refill from tail"]
+    SD_SESSION -->|No| Y
+    SD_CHECK --> SD_MARK["markSeen(): record returned URLs in session"]
+    SD_MARK --> Y[Save to caches]
 
     Y --> AA[Record budget usage]
     AA --> AB["Return SearchResponse to Agent"]

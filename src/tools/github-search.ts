@@ -57,7 +57,7 @@ function buildQuery(query: string, language?: string, stars?: string): string {
   server.registerTool(
     'github_search',
     {
-      description: 'Search GitHub repositories, code, issues, or users',
+      description: 'Search GitHub repositories, code, issues, or users. Prefer for open source repos, code patterns, and real-world usage examples.',
       inputSchema: schema,
     },
     async (args) => {
@@ -74,7 +74,7 @@ function buildQuery(query: string, language?: string, stars?: string): string {
 
         const headers: Record<string, string> = {
           Accept: 'application/vnd.github.v3+json',
-          'User-Agent': 'search-mcp/1.0',
+          'User-Agent': 'mcp-web-hound/1.0',
         };
 
         if (config.GITHUB_TOKEN) {

@@ -1,8 +1,8 @@
-# Search MCP Server Architecture
+# MCP Web Hound Architecture
 
 ## Pipeline Overview
 
-Each `search()` call goes through a linear pipeline:
+Each `web_search()` call goes through a linear pipeline:
 
 ```mermaid
 flowchart TD
@@ -34,7 +34,7 @@ flowchart TD
 
 ### 1. MCP Transport Layer (`src/index.ts`)
 
-Entry point. Registers 4 tools via `@modelcontextprotocol/sdk`: `search`, `github_search`, `gitlab_search`, `status`. Handles JSON-RPC over stdio.
+Entry point. Registers 4 tools via `@modelcontextprotocol/sdk`: `web_search`, `github_search`, `gitlab_search`, `status`. Handles JSON-RPC over stdio.
 
 **Responsibilities:**
 - Tool registration
@@ -160,7 +160,7 @@ sequenceDiagram
     participant SP as Search Provider
     participant RR as Reranker
 
-    Agent->>MCP: search({ query: "react hooks tutorial" })
+    Agent->>MCP: web_search({ query: "react hooks tutorial" })
     MCP->>BM: checkBudget()
     BM-->>MCP: OK (8/15 searches used)
     MCP->>QN: normalize("react hooks tutorial")
@@ -195,7 +195,7 @@ sequenceDiagram
     participant SC as Semantic Cache
     participant EC as Exact Cache
 
-    Agent->>MCP: search({ query: "react hooks guide" })
+    Agent->>MCP: web_search({ query: "react hooks guide" })
     Note over MCP: Normalization, budget OK
     MCP->>SC: findSimilar(embedding)
     SC-->>MCP: similarKey: "abc123" (similarity: 0.96)

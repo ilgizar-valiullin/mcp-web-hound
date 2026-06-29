@@ -5,14 +5,15 @@ import { IntentClassifier } from '../search/intent-classifier.js';
 import { logger } from '../utils/logger.js';
 
 const SearchRequestSchema = z.object({
-  query: z.string().min(1, 'Query cannot be empty'),
+  query: z.string().min(1).describe('Keywords only — strip filler. Use exact quotes for error messages or code signatures. Prepend site:domain to narrow to a specific source. Never hardcode a year — if temporal context matters, state the need naturally (e.g. "latest api", "current version", "recent changes"). Search engines handle freshness.'),
+
 });
 
 export function registerSearchTool(server: McpServer, orchestrator: Orchestrator, classifier: IntentClassifier): void {
   server.registerTool(
-    'search',
+    'web_search',
     {
-      description: 'Search the web for documentation, code examples, and other resources',
+      description: 'Search the web for real-time data, current events, documentation, and up-to-date factual information. NEVER rely on training data for technical specifics — always search first. See server instructions for full protocol.',
       inputSchema: SearchRequestSchema,
     },
     async (args) => {

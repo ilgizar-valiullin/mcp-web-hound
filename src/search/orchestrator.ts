@@ -1,9 +1,10 @@
 import { BudgetManager } from '../limits/budget-manager.js';
+import { SessionStore } from '../limits/session-store.js';
 import { SqliteCache } from '../cache/sqlite.js';
 import { SemanticCache } from '../cache/semantic-cache.js';
 import { ProviderRouter } from './provider-router.js';
 import { processQuery } from './query-normalizer.js';
-import { rerankResults, deduplicateResults } from './reranker.js';
+import { rerankResults, deduplicateResults, normalizeUrl } from './reranker.js';
 import { EmbeddingService } from '../embeddings/embedding-service.js';
 import { IntentClassifier } from './intent-classifier.js';
 import { config } from '../utils/config.js';
@@ -32,6 +33,7 @@ export class Orchestrator {
   private router: ProviderRouter;
   private embeddingService?: EmbeddingService;
   private classifier?: IntentClassifier;
+  private sessionStore?: SessionStore;
 
   constructor(
     budgetManager: BudgetManager,
@@ -40,6 +42,7 @@ export class Orchestrator {
     semanticCache?: SemanticCache,
     embeddingService?: EmbeddingService,
     classifier?: IntentClassifier,
+    sessionStore?: SessionStore,
   ) {
     this.budgetManager = budgetManager;
     this.cache = cache;
@@ -47,6 +50,7 @@ export class Orchestrator {
     this.semanticCache = semanticCache;
     this.embeddingService = embeddingService;
     this.classifier = classifier;
+    this.sessionStore = sessionStore;
   }
 
   async search(request: SearchRequest): Promise<SearchResponse> {
@@ -66,6 +70,7 @@ export class Orchestrator {
           cached: false,
           query_normalized: normalized,
           search_time_ms: Date.now() - startTime,
+          session_deduped_count: 0,
         },
       };
     }
@@ -86,6 +91,7 @@ export class Orchestrator {
                 cached: true,
                 query_normalized: cached.queryNorm,
                 search_time_ms: Date.now() - startTime,
+                session_deduped_count: 0,
               },
             };
           }
@@ -103,6 +109,7 @@ export class Orchestrator {
                 cached: true,
                 query_normalized: resolvedQuery.queryNorm,
                 search_time_ms: Date.now() - startTime,
+                session_deduped_count: 0,
               },
             };
           }
@@ -129,6 +136,7 @@ export class Orchestrator {
           cached: true,
           query_normalized: cached.queryNorm,
           search_time_ms: Date.now() - startTime,
+          session_deduped_count: 0,
         },
       };
     }
@@ -180,16 +188,40 @@ export class Orchestrator {
     }
 
     const scoredResults = rerankResults(deduped, requiresFreshness, nliScores, true);
-    const topResults = scoredResults.slice(0, config.MAX_RESULTS_AFTER_RERANK);
 
-    const searchResults: SearchResult[] = topResults.map((r) => ({
-      title: r.title,
-      url: r.url,
-      snippet: r.snippet,
-      published_date: r.published_date,
-      source: r.provider,
-      relevance_score: r.relevance_score,
-    }));
+    let searchResults: SearchResult[];
+    let sessionDedupedCount = 0;
+
+    if (this.sessionStore?.enabled) {
+      const filtered: SearchResult[] = [];
+      for (const r of scoredResults) {
+        if (filtered.length >= config.MAX_RESULTS_AFTER_RERANK) break;
+        const normalizedUrl = normalizeUrl(r.url);
+        if (this.sessionStore.isSeen(normalizedUrl)) {
+          sessionDedupedCount++;
+          continue;
+        }
+        filtered.push({
+          title: r.title,
+          url: r.url,
+          snippet: r.snippet,
+          published_date: r.published_date,
+          source: r.provider,
+          relevance_score: r.relevance_score,
+        });
+      }
+      searchResults = filtered;
+      this.sessionStore.markSeen(filtered.map((r) => normalizeUrl(r.url)));
+    } else {
+      searchResults = scoredResults.slice(0, config.MAX_RESULTS_AFTER_RERANK).map((r) => ({
+        title: r.title,
+        url: r.url,
+        snippet: r.snippet,
+        published_date: r.published_date,
+        source: r.provider,
+        relevance_score: r.relevance_score,
+      }));
+    }
 
     const ttl = calculateTTL(request.intent);
     this.cache.setQuery(cacheKey, request.query, normalized, request.intent, searchResults, ttl);
@@ -212,6 +244,7 @@ export class Orchestrator {
         cached: false,
         query_normalized: normalized,
         search_time_ms: Date.now() - startTime,
+        session_deduped_count: sessionDedupedCount,
       },
     };
   }

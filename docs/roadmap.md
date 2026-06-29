@@ -25,7 +25,7 @@ Minimally working version with one provider and basic cache.
 
 ### V1 Result
 
-Agent calls `search()` → first healthy provider responds → results cached.
+Agent calls `web_search()` → first healthy provider responds → results cached.
 
 ---
 
@@ -120,7 +120,7 @@ Production-ready MCP Search Server with 6 providers, GitHub/GitLab search, confi
 
 ```mermaid
 gantt
-    title Search MCP Server Roadmap
+    title MCP Web Hound Roadmap
     dateFormat  YYYY-MM-DD
     
     section V1 - MVP

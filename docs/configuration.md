@@ -1,5 +1,26 @@
 # Configuration
 
+## Two-tier config model
+
+Config is split across two `.env` files:
+
+| Tier | File | Purpose |
+|------|------|---------|
+| **Server** | `<package_root>/.env` | Main config — written by `mcp-web-hound-configure` |
+| **Project** | `<cwd>/.env` | Optional per-folder overrides (individual keys only) |
+
+**AI agent rule:** Agents MUST write config ONLY to the server `.env` via
+`mcp-web-hound-configure --json set`. NEVER write to a project's `.env`.
+
+## Configure tool
+
+```bash
+mcp-web-hound-configure                  # Interactive TUI
+mcp-web-hound-configure --json get       # Machine-readable list of all 64 fields
+mcp-web-hound-configure --json set KEY=VALUE    # Set one or more values
+mcp-web-hound-configure --help                 # Full help
+```
+
 ## Environment Variables
 
 All settings via `.env` file or environment variables.
@@ -130,8 +151,6 @@ Results are scored as `0.9 * NLI(query, snippet) + 0.04 * domain + 0.03 * freshn
 The NLI model is shared with intent classification — no separate config needed.
 
 ---
-
-## Validation
 
 On startup, the server validates:
 
