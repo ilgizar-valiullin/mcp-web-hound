@@ -40,7 +40,7 @@ npx mcp-web-hound-configure --json set GITHUB_TOKEN=ghp_xxx
 To see all available settings:
 
 ```bash
-mcp-web-hound-configure --json get
+npx mcp-web-hound-configure --json get
 ```
 
 Startpage, DuckDuckGo, Brave Web, and Bing work without keys (HTML scraping).

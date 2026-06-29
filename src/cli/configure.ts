@@ -663,33 +663,32 @@ MCP Web Hound — Configuration Tool
 
 Config file: ${ENV_PATH}
 
-Configuration model (2-tier):
-  ${ENV_PATH}            Server config (written by this tool)
+Configuration:
+  ${ENV_PATH}            Main config (written by this tool)
   ${cwdEnv}               Per-project overrides (optional)
 
-  AGENT RULE: AI agents MUST write config ONLY to the server .env above
-  via --json set. NEVER write to a project's .env file.
+  ALWAYS use npx when running: npx mcp-web-hound-configure --json set ...
 
 Usage:
-  mcp-web-hound-configure                  Interactive settings editor (TUI)
-  mcp-web-hound-configure --help            Show this help
+  npx mcp-web-hound-configure                  Interactive settings editor (TUI)
+  npx mcp-web-hound-configure --help            Show this help
 
 Machine-readable JSON (for AI agents):
-  mcp-web-hound-configure --json get        List all config fields with
-                                            descriptions, types, defaults,
-                                            current values, and sections.
-                                            Output: JSON array on stdout.
+  npx mcp-web-hound-configure --json get        List all config fields with
+                                                descriptions, types, defaults,
+                                                current values, and sections.
+                                                Output: JSON array on stdout.
 
-  mcp-web-hound-configure --json set KEY=VALUE [KEY=VALUE...]
-                                            Set one or more config values.
-                                            Validates all values against the
-                                            schema before writing any.
-                                            Output: JSON result on stdout.
+  npx mcp-web-hound-configure --json set KEY=VALUE [KEY=VALUE...]
+                                                Set one or more config values.
+                                                Validates all values against the
+                                                schema before writing any.
+                                                Output: JSON result on stdout.
 
   Examples:
-    mcp-web-hound-configure --json get
-    mcp-web-hound-configure --json set BRAVE_API_KEY=abc123
-    mcp-web-hound-configure --json set DDG_ENABLED=false GITHUB_TOKEN=ghp_xxx
+    npx mcp-web-hound-configure --json get
+    npx mcp-web-hound-configure --json set BRAVE_API_KEY=abc123
+    npx mcp-web-hound-configure --json set DDG_ENABLED=false GITHUB_TOKEN=ghp_xxx
 `);
 }
 

@@ -15,10 +15,10 @@ Config is split across two `.env` files:
 ## Configure tool
 
 ```bash
-mcp-web-hound-configure                  # Interactive TUI
-mcp-web-hound-configure --json get       # Machine-readable list of all 64 fields
-mcp-web-hound-configure --json set KEY=VALUE    # Set one or more values
-mcp-web-hound-configure --help                 # Full help
+npx mcp-web-hound-configure                  # Interactive TUI
+npx mcp-web-hound-configure --json get       # Machine-readable list of all 64 fields
+npx mcp-web-hound-configure --json set KEY=VALUE    # Set one or more values
+npx mcp-web-hound-configure --help                 # Full help
 ```
 
 ## Environment Variables

@@ -14,7 +14,7 @@
 
 6. **Budget enforcement.** Budget check MUST happen before any provider call. No exceptions.
 
-7. **Env-based config.** All configurable values come from environment variables (`.env`). Use `mcp-web-hound-configure --json get/set` for machine-readable access. Two-tier model: server `.env` (main) + project `.env` (per-folder overrides). Agents must only write to server `.env`.
+7. **Env-based config.** All configurable values come from environment variables (`.env`). Use `npx mcp-web-hound-configure --json get/set` for machine-readable access. Two-tier model: `~/.config/mcp-web-hound/.env` (main) + project `.env` (per-folder overrides). Agents must only write to server `.env`.
 
 8. **Logging.** Use `pino` structured logger. No `console.log` in production code.
 
