@@ -103,6 +103,24 @@ export abstract class BaseProvider implements SearchProvider {
     return true;
   }
 
+  /**
+   * Lightweight reachability check. Sends a HEAD request to the given URL
+   * with a short timeout. Returns true if the server responds with any status
+   * (including 4xx/5xx — we're checking reachability, not application health).
+   * Override in subclasses for provider-specific checks.
+   */
+  protected async ping(url: string, timeoutMs: number = 5000): Promise<boolean> {
+    try {
+      await fetch(url, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   getStats(): ProviderStats {
     return {
       name: this.name,

@@ -21,6 +21,10 @@ export class BingProvider extends BaseProvider {
     this.maxPages = config.BING_MAX_PAGES;
   }
 
+  async healthCheck(): Promise<boolean> {
+    return this.ping('https://www.bing.com/');
+  }
+
   async doSearch(query: string, options: ProviderOptions): Promise<ProviderResult[]> {
     const elapsed = Date.now() - lastRequestTime;
     if (elapsed < 1000) {

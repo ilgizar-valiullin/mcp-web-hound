@@ -28,6 +28,10 @@ export class ExaProvider extends BaseProvider {
     this.apiKey = config.EXA_API_KEY ?? '';
   }
 
+  async healthCheck(): Promise<boolean> {
+    return this.apiKey ? this.ping('https://api.exa.ai/') : false;
+  }
+
   async doSearch(query: string, options: ProviderOptions): Promise<ProviderResult[]> {
     if (!this.apiKey) {
       throw new Error('Exa API key not configured');

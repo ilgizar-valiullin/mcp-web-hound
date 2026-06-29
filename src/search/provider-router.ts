@@ -111,7 +111,7 @@ export class ProviderRouter {
           continue;
         }
         logger.debug({ provider: provider.name, query }, 'Sequential search to provider');
-        const results = await provider.search(query, options);
+        const results = await this.withRetry(provider, query, options);
         this.rateLimitStore.record(this.providerKey(provider));
         if (results && results.length > 0) {
           logger.info({ provider: provider.name, results: results.length }, 'Sequential provider returned results');
@@ -124,7 +124,8 @@ export class ProviderRouter {
         logger.error({ err: e, provider: provider.name }, 'Sequential provider failed');
       }
     }
-    throw new Error('All sequential providers failed');
+    logger.warn('All sequential providers failed — returning empty results');
+    return [];
   }
 
   private async searchParallel(
@@ -152,7 +153,7 @@ export class ProviderRouter {
             continue;
           }
           logger.debug({ provider: provider.name, query }, 'Routing search to provider');
-          const results = await provider.search(query, options);
+          const results = await this.withRetry(provider, query, options);
           this.rateLimitStore.record(this.providerKey(provider));
           if (results && results.length > 0) {
             logger.info(
@@ -179,12 +180,32 @@ export class ProviderRouter {
 
     if (allResults.length === 0) {
       if (lastError.length > 0) {
-        throw new Error(`All providers failed: ${lastError.map((e) => e.message).join('; ')}`);
+        logger.warn({ errors: lastError.map(e => e.message) }, 'All parallel providers failed — returning empty');
+      } else {
+        logger.warn('No providers configured — returning empty');
       }
-      throw new Error('No providers configured');
     }
 
     return allResults;
+  }
+
+  private async withRetry(
+    provider: SearchProvider,
+    query: string,
+    options: ProviderOptions,
+    attempt: number = 0,
+  ): Promise<ProviderResult[]> {
+    try {
+      return await provider.search(query, options);
+    } catch (err) {
+      if (attempt < config.PROVIDER_RETRY_COUNT) {
+        const delay = config.PROVIDER_RETRY_DELAY_MS * Math.pow(2, attempt);
+        logger.warn({ provider: provider.name, attempt: attempt + 1, delay }, 'Retrying provider after error');
+        await new Promise(r => setTimeout(r, delay));
+        return this.withRetry(provider, query, options, attempt + 1);
+      }
+      throw err;
+    }
   }
 
   getProviderStats(): ProviderStats[] {

@@ -101,12 +101,13 @@ describe('ProviderRouter', () => {
     expect(p4.doSearchFn).toHaveBeenCalledOnce();
   });
 
-  it('should throw if all providers fail', async () => {
+  it('should return empty when all providers fail', async () => {
     const p1 = new MockProvider('Provider1', 1);
     p1.doSearchFn.mockRejectedValue(new Error('API down'));
 
     const router = makeRouter([p1]);
-    await expect(router.search('test', dummyOptions)).rejects.toThrow('All providers failed');
+    const results = await router.search('test', dummyOptions);
+    expect(results).toEqual([]);
   });
 
   it('should return first provider result in sequential mode', async () => {
@@ -125,23 +126,22 @@ describe('ProviderRouter', () => {
     const p1 = new MockProvider('Provider1', 1);
     const p2 = new MockProvider('Provider2', 1);
 
-    p1.doSearchFn.mockRejectedValueOnce(new Error('API down'));
+    p1.doSearchFn.mockRejectedValue(new Error('API down'));
     p2.doSearchFn.mockResolvedValueOnce(dummyResults);
 
     const router = makeRouter([p1, p2]) as any;
     const result = await router.searchSequential('test', dummyOptions);
-    expect(p1.doSearchFn).toHaveBeenCalledOnce();
+    expect(p1.doSearchFn).toHaveBeenCalledTimes(2); // initial + 1 retry
     expect(p2.doSearchFn).toHaveBeenCalledOnce();
     expect(result).toEqual(dummyResults);
   });
 
-  it('should throw when all sequential providers fail', async () => {
+  it('should return empty when all sequential providers fail', async () => {
     const p1 = new MockProvider('Provider1', 1);
-    p1.doSearchFn.mockRejectedValueOnce(new Error('API down'));
+    p1.doSearchFn.mockRejectedValue(new Error('API down'));
 
     const router = makeRouter([p1]) as any;
-    await expect(router.searchSequential('test', dummyOptions)).rejects.toThrow(
-      'All sequential providers failed',
-    );
+    const results = await router.searchSequential('test', dummyOptions);
+    expect(results).toEqual([]);
   });
 });

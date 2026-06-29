@@ -60,6 +60,10 @@ export class BraveProvider extends BaseProvider {
     this.apiKey = config.BRAVE_API_KEY ?? '';
   }
 
+  async healthCheck(): Promise<boolean> {
+    return this.apiKey ? this.ping('https://api.search.brave.com/') : false;
+  }
+
   async doSearch(query: string, options: ProviderOptions): Promise<ProviderResult[]> {
     if (!this.apiKey) {
       throw new Error('Brave API key not configured');

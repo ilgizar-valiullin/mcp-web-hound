@@ -213,6 +213,10 @@ export const ConfigSchema = z.object({
   // Execution mode: 'parallel' — call providers concurrently, 'sequential' — stop on first success
   PROVIDER_EXECUTION_MODE: z.enum(['parallel', 'sequential']).default('parallel'),
 
+  // Provider retry — number of retries before suspending a provider on transient failure
+  PROVIDER_RETRY_COUNT: z.number().or(z.string().transform(Number)).default(1),
+  PROVIDER_RETRY_DELAY_MS: z.number().or(z.string().transform(Number)).default(1000),
+
   // Final results — how many results returned to agent after reranking
   MAX_RESULTS_AFTER_RERANK: z.number().or(z.string().transform(Number)).default(10),
 

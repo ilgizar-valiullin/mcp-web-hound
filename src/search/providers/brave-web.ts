@@ -13,6 +13,10 @@ export class BraveWebProvider extends BaseProvider {
   readonly name = 'Brave Web';
   readonly tier = 2;
 
+  async healthCheck(): Promise<boolean> {
+    return this.ping('https://search.brave.com/');
+  }
+
   async doSearch(query: string, options: ProviderOptions): Promise<ProviderResult[]> {
     const elapsed = Date.now() - lastRequestTime;
     if (elapsed < 1000) {

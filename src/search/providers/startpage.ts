@@ -184,6 +184,10 @@ export class StartpageProvider extends BaseProvider {
   readonly name = 'Startpage';
   readonly tier = 2;
 
+  async healthCheck(): Promise<boolean> {
+    return this.ping('https://www.startpage.com/');
+  }
+
   async doSearch(query: string, options: ProviderOptions): Promise<ProviderResult[]> {
     const elapsed = Date.now() - lastRequestTime;
     if (elapsed < 1000) {

@@ -27,6 +27,10 @@ export class TavilyProvider extends BaseProvider {
     this.apiKey = config.TAVILY_API_KEY ?? '';
   }
 
+  async healthCheck(): Promise<boolean> {
+    return this.apiKey ? this.ping('https://api.tavily.com/') : false;
+  }
+
   async doSearch(query: string, options: ProviderOptions): Promise<ProviderResult[]> {
     if (!this.apiKey) {
       throw new Error('Tavily API key not configured');

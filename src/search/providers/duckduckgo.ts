@@ -49,6 +49,10 @@ export class DuckDuckGoProvider extends BaseProvider {
     this.maxPages = config.DDG_MAX_PAGES;
   }
 
+  async healthCheck(): Promise<boolean> {
+    return this.ping('https://html.duckduckgo.com/');
+  }
+
   async doSearch(query: string, options: ProviderOptions): Promise<ProviderResult[]> {
     const allResults: ProviderResult[] = [];
     const needPages = Math.min(Math.ceil(options.max_results / this.resultsPerPage), this.maxPages);

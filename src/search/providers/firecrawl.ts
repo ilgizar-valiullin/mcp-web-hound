@@ -29,6 +29,10 @@ export class FirecrawlProvider extends BaseProvider {
     this.apiKey = config.FIRECRAWL_API_KEY ?? '';
   }
 
+  async healthCheck(): Promise<boolean> {
+    return this.apiKey ? this.ping('https://api.firecrawl.dev/') : false;
+  }
+
   async doSearch(query: string, options: ProviderOptions): Promise<ProviderResult[]> {
     if (!this.apiKey) {
       throw new Error('Firecrawl API key not configured');
