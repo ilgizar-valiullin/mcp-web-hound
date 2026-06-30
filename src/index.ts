@@ -18,6 +18,7 @@ import { registerSearchTool } from './tools/search.js';
 import { registerStatusTool } from './tools/status.js';
 import { registerGitHubSearchTool } from './tools/github-search.js';
 import { registerGitLabSearchTool } from './tools/gitlab-search.js';
+import { registerReportUsageTool } from './tools/report-usage.js';
 import { IntentClassifier } from './search/intent-classifier.js';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
@@ -148,6 +149,7 @@ Red flags: outdated versions without migration notes, unofficial sources for cri
   registerSearchTool(server, orchestrator, classifier);
   registerStatusTool(server, cache, router, budgetManager);
   registerGitHubSearchTool(server);
+  registerReportUsageTool(server, cache);
 
   if (config.GITLAB_TOKEN) {
     registerGitLabSearchTool(server);

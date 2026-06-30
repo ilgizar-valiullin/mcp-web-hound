@@ -161,6 +161,65 @@ export interface StatusResponse {
   uptime_seconds: number;
 }
 
+// --- Search Logging ---
+
+export interface ProviderRanking {
+  source: string;
+  engine_rank: number;
+}
+
+export interface RankingSignals {
+  nli: number;
+  domain: number;
+  freshness: number;
+  position_bias: number;
+}
+
+export interface ScoredDocEntry {
+  baseline_score: number;
+  signals: RankingSignals;
+}
+
+export interface CandidateLogEntry {
+  doc_id: string;
+  title: string;
+  snippet: string;
+  url: string;
+  provider_rankings: ProviderRanking[];
+}
+
+export interface SearchStats {
+  total_from_providers: number;
+  unique_after_dedup: number;
+  returned_to_agent: number;
+}
+
+export interface SearchLogEntry {
+  type: string;
+  data_role: string;
+  search_id: string;
+  query: string;
+  normalized_query: string;
+  intent: string;
+  providers_used: string[];
+  candidates: CandidateLogEntry[];
+  scoring: Record<string, ScoredDocEntry>;
+  stats: SearchStats;
+  final_order: string[];
+  agent_usage: string[] | null;
+  system_version: {
+    mcp: string;
+    ranker: string;
+    signals: string;
+    nli_model: string;
+  };
+  meta: {
+    timestamp: string;
+    latency_ms: number;
+    cache_hit: boolean;
+  };
+}
+
 // --- Config ---
 // The single source for all configuration.
 // Add `.describe()` to user-facing fields for automatic docs/help/logging.
@@ -244,6 +303,8 @@ export const ConfigSchema = z.object({
     .describe('HuggingFace model for NLI-based intent classification'),
   RERANK_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
     .describe('Enable cross-encoder reranking for result relevance'),
+  SEARCH_LOG_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(false)
+    .describe('Log search queries, candidates, and reranker scores for ML training dataset'),
 
   // --- Session ---
   SESSION_DEDUP_WINDOW_MINUTES: z.number().or(z.string().transform(Number)).default(5)

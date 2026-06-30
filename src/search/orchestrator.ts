@@ -1,15 +1,25 @@
+import crypto from 'node:crypto';
 import { BudgetManager } from '../limits/budget-manager.js';
 import { SessionStore } from '../limits/session-store.js';
 import { SqliteCache } from '../cache/sqlite.js';
 import { SemanticCache } from '../cache/semantic-cache.js';
 import { ProviderRouter } from './provider-router.js';
 import { processQuery } from './query-normalizer.js';
-import { rerankResults, deduplicateResults, normalizeUrl } from './reranker.js';
+import { rerankResults, deduplicateResults, normalizeUrl, MCP_VERSION, RERANKER_VERSION, SIGNALS_VERSION } from './reranker.js';
+import type { ScoredResult } from './reranker.js';
 import { EmbeddingService } from '../embeddings/embedding-service.js';
 import { IntentClassifier } from './intent-classifier.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
-import type { SearchRequest, SearchResponse, SearchResult } from '../utils/types.js';
+import type {
+  CandidateLogEntry,
+  ProviderRanking,
+  ScoredDocEntry,
+  SearchLogEntry,
+  SearchRequest,
+  SearchResponse,
+  SearchResult,
+} from '../utils/types.js';
 
 interface TTLConfig {
   base: number;
@@ -223,6 +233,10 @@ export class Orchestrator {
       }));
     }
 
+    if (config.SEARCH_LOG_ENABLED) {
+      void this.logSearch(request.query, normalized, request.intent, providerResults, scoredResults, searchResults, startTime);
+    }
+
     const ttl = calculateTTL(request.intent);
     this.cache.setQuery(cacheKey, request.query, normalized, request.intent, searchResults, ttl);
 
@@ -247,5 +261,101 @@ export class Orchestrator {
         session_deduped_count: sessionDedupedCount,
       },
     };
+  }
+
+  private logSearch(
+    query: string,
+    normalized: string,
+    intent: string,
+    providerResults: { url: string; title: string; snippet: string; provider: string; raw_position: number }[],
+    scoredResults: ScoredResult[],
+    searchResults: SearchResult[],
+    startTime: number,
+  ): void {
+    try {
+      const providerRankingsByUrl = new Map<string, ProviderRanking[]>();
+      for (const r of providerResults) {
+        const normUrl = normalizeUrl(r.url);
+        const ranking: ProviderRanking = { source: r.provider, engine_rank: r.raw_position };
+        const existing = providerRankingsByUrl.get(normUrl);
+        if (existing) {
+          existing.push(ranking);
+          existing.sort((a, b) => a.engine_rank - b.engine_rank);
+        } else {
+          providerRankingsByUrl.set(normUrl, [ranking]);
+        }
+      }
+
+      const providersUsed = [...new Set(providerResults.map((r) => r.provider))];
+
+      const urlToDocId = new Map<string, string>();
+      for (const r of scoredResults) {
+        const normUrl = normalizeUrl(r.url);
+        urlToDocId.set(normUrl, crypto.createHash('sha256').update(normUrl).digest('hex').slice(0, 12));
+      }
+
+      const candidates: CandidateLogEntry[] = [];
+      const scoring: Record<string, ScoredDocEntry> = {};
+
+      for (const r of scoredResults) {
+        const normUrl = normalizeUrl(r.url);
+        const docId = urlToDocId.get(normUrl)!;
+
+        candidates.push({
+          doc_id: docId,
+          title: r.title,
+          snippet: r.snippet,
+          url: r.url,
+          provider_rankings: providerRankingsByUrl.get(normUrl) ?? [],
+        });
+
+        scoring[docId] = {
+          baseline_score: r.relevance_score,
+          signals: {
+            nli: r.nli_score,
+            domain: r.domain_score,
+            freshness: r.freshness_score,
+            position_bias: r.position_score,
+          },
+        };
+      }
+
+      const finalOrder = scoredResults.map((r) => urlToDocId.get(normalizeUrl(r.url))!);
+
+      const entry: SearchLogEntry = {
+        type: 'search',
+        data_role: 'production_log',
+        search_id: crypto.randomUUID(),
+        query,
+        normalized_query: normalized,
+        intent,
+        providers_used: providersUsed,
+        candidates,
+        scoring,
+        stats: {
+          total_from_providers: providerResults.length,
+          unique_after_dedup: scoredResults.length,
+          returned_to_agent: searchResults.length,
+        },
+        final_order: finalOrder,
+        agent_usage: null,
+        system_version: {
+          mcp: MCP_VERSION,
+          ranker: RERANKER_VERSION,
+          signals: SIGNALS_VERSION,
+          nli_model: config.INTENT_CLASSIFIER_MODEL,
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          latency_ms: Date.now() - startTime,
+          cache_hit: false,
+        },
+      };
+
+      this.cache.insertSearchLog(entry);
+      logger.debug({ searchId: entry.search_id, candidates: entry.candidates.length }, 'Search log written');
+    } catch (err) {
+      logger.error({ err }, 'Failed to write search log');
+    }
   }
 }

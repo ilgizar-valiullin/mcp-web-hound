@@ -1,5 +1,13 @@
+import { createRequire } from 'node:module';
 import { config } from '../utils/config.js';
 import type { ProviderResult } from '../utils/types.js';
+
+const require = createRequire(import.meta.url);
+const pkg = require('../../package.json') as { version: string };
+
+export const MCP_VERSION = pkg.version;
+export const RERANKER_VERSION = 'v1';
+export const SIGNALS_VERSION = 'v1';
 
 const DOMAIN_SCORES: Record<string, number> = {
   'github.com': 0.95,
@@ -42,6 +50,10 @@ const POSITION_WEIGHT = 0.03;
 
 export interface ScoredResult extends ProviderResult {
   relevance_score: number;
+  nli_score: number;
+  domain_score: number;
+  freshness_score: number;
+  position_score: number;
 }
 
 export function normalizeUrl(url: string): string {
@@ -144,6 +156,10 @@ export function rerankResults(
     return results.map((r, i) => ({
       ...r,
       relevance_score: 1.0 - i * 0.01,
+      nli_score: 0.5,
+      domain_score: 0.5,
+      freshness_score: 1.0,
+      position_score: 0.5,
     }));
   }
 
@@ -164,6 +180,10 @@ export function rerankResults(
     return {
       ...result,
       relevance_score: Math.round(score * 1000) / 1000,
+      nli_score: nli,
+      domain_score: domain,
+      freshness_score: freshness,
+      position_score: position,
     };
   });
 

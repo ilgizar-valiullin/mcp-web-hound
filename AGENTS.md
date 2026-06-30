@@ -25,3 +25,5 @@
 11. **Tests before merge.** Every feature or fix MUST include tests. Run `npm test` before committing. For live provider testing, set API keys in `.env` and run `npm run test:providers`.
 
 12. **Coverage check.** After adding tests, verify coverage doesn't regress: `npm run test:coverage`. Current thresholds: statements 50%, branches 35%, functions 55%, lines 55%.
+
+13. **Search log versioning.** Every entry in the training dataset carries `system_version` for provenance. The `ranker` and `signals` versions are defined as constants in `src/search/reranker.ts` (`RERANKER_VERSION`, `SIGNALS_VERSION`). The `mcp` version comes from `package.json`.

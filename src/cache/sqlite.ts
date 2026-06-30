@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { resolve } from 'node:path';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
-import type { CacheStats, SearchResult } from '../utils/types.js';
+import type { CacheStats, SearchLogEntry, SearchResult } from '../utils/types.js';
 
 interface QueryRow {
   id: number;
@@ -86,6 +86,16 @@ export class SqliteCache {
         avg_latency_ms REAL NOT NULL DEFAULT 0,
         UNIQUE(provider, date)
       );
+
+      CREATE TABLE IF NOT EXISTS search_logs (
+        search_id     TEXT PRIMARY KEY,
+        data_json     TEXT NOT NULL,
+        agent_usage   TEXT,
+        created_at    TEXT NOT NULL,
+        updated_at    TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_search_logs_usage ON search_logs(agent_usage);
     `);
   }
 
@@ -198,6 +208,34 @@ export class SqliteCache {
 
   getDb(): Database.Database {
     return this.db;
+  }
+
+  insertSearchLog(entry: SearchLogEntry): void {
+    const now = new Date().toISOString();
+    this.db.prepare(`
+      INSERT INTO search_logs (search_id, data_json, agent_usage, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(entry.search_id, JSON.stringify(entry), null, now, now);
+  }
+
+  updateSearchLogUsage(searchId: string, usedDocIds: string[]): boolean {
+    const row = this.db.prepare('SELECT search_id FROM search_logs WHERE search_id = ?').get(searchId);
+    if (!row) return false;
+
+    const now = new Date().toISOString();
+    this.db.prepare(`
+      UPDATE search_logs SET agent_usage = ?, updated_at = ?
+      WHERE search_id = ?
+    `).run(JSON.stringify(usedDocIds), now, searchId);
+    return true;
+  }
+
+  exportSearchLogs(): SearchLogEntry[] {
+    const rows = this.db.prepare(
+      'SELECT data_json FROM search_logs WHERE agent_usage IS NOT NULL ORDER BY created_at',
+    ).all() as { data_json: string }[];
+
+    return rows.map((r) => JSON.parse(r.data_json));
   }
 
   close(): void {
