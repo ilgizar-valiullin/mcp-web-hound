@@ -154,3 +154,31 @@ ORDER BY created_at;
 ```
 
 Each row is a self-contained, atomic training sample — no joins, no orphaned data.
+
+## CLI Export Tool
+
+The package ships with `mcp-web-hound-export-logs` for command-line export:
+
+```bash
+# All entries (JSON)
+npx mcp-web-hound-export-logs
+
+# Only training-ready entries (with agent_usage)
+npx mcp-web-hound-export-logs --export
+
+# Training dataset in JSONL format (one JSON object per line)
+npx mcp-web-hound-export-logs --export --jsonl > training-data.jsonl
+
+# Custom database path
+npx mcp-web-hound-export-logs --db ./data/search.db --export
+
+# Help
+npx mcp-web-hound-export-logs --help
+```
+
+The tool searches for the database in order:
+1. `./data/search.db` (project-local)
+2. `~/.mcp-web-hound/data/search.db` (npx runtime)
+3. `~/.config/mcp-web-hound/data/search.db` (config dir)
+
+Use `--db <path>` to override.

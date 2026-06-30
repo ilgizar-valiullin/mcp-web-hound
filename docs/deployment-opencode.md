@@ -123,6 +123,23 @@ DDG_ENABLED=true
 BING_ENABLED=true
 ```
 
+## Search Log Export
+
+If `SEARCH_LOG_ENABLED=true` is set, every `web_search` call is logged to the SQLite database.
+
+Export training data:
+
+```bash
+# All entries
+npx mcp-web-hound-export-logs
+
+# Training subset (only entries where agent reported usage)
+npx mcp-web-hound-export-logs --export --jsonl > training-data.jsonl
+
+# See full options
+npx mcp-web-hound-export-logs --help
+```
+
 **Build errors**  
 Ensure Node.js >= 20:
 ```bash

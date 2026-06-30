@@ -1,12 +1,13 @@
 {
   "name": "mcp-web-hound",
-  "version": "1.10.0",
+  "version": "1.10.1",
   "description": "MCP Web Hound — unified web search, GitHub search, and GitLab search tools with caching, reranking, and rate limits",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
     "mcp-web-hound": "./dist/index.js",
-    "mcp-web-hound-configure": "./dist/cli/configure.js"
+    "mcp-web-hound-configure": "./dist/cli/configure.js",
+    "mcp-web-hound-export-logs": "./dist/cli/export-logs.js"
   },
   "files": [
     "dist/",
@@ -18,6 +19,7 @@
     "build": "tsc",
     "prepublishOnly": "npm run build",
     "configure": "node dist/cli/configure.js",
+    "export-logs": "node dist/cli/export-logs.js",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "test": "vitest run",

@@ -50,6 +50,8 @@ Commands:
   npx mcp-web-hound-configure                  Interactive settings editor
   npx mcp-web-hound-configure --json get       List all settings (machine-readable JSON)
   npx mcp-web-hound-configure --json set KEY=VAL   Apply settings (machine-readable JSON)
+  npx mcp-web-hound-export-logs                Export search log entries (training dataset)
+  npx mcp-web-hound-export-logs --help         Export tool options
 
 OpenCode setup (opencode.json):
   "web_search": {
