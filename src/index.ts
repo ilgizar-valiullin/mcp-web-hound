@@ -117,7 +117,7 @@ Before executing ANY search tool, emit a strict planning block:
 Cite sources. If you can't confirm a claim, search first.
 
 ## Query Formatting
-Keywords only (strip filler). Exact quotes for error messages or code signatures. Prepend site:domain to narrow results. Always include the current year for time-sensitive queries (e.g. "React 2026 tutorial" instead of "React latest tutorial"). Years act as strong relevance signals.
+Keywords only (strip filler). Exact quotes for error messages or code signatures. Prepend site:domain to narrow results. Always hardcode the current year — search engines use years as strong relevance signals. Vague terms like "latest" or "recent" produce stale results.
 
 ## Source Quality
 Prefer: official docs → official repos → issues/discussions → release notes → technical articles → forums (supporting only).

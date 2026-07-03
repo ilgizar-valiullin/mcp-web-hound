@@ -16,7 +16,7 @@ For technical specifics — API signatures, versions, errors, current data — c
 
 - Keywords only — strip natural language filler.
 - Exact quotes for unique error messages or code signatures.
-- **Always include the current year** for time-sensitive queries (e.g. "React 2026 tutorial" instead of "React latest tutorial"). Years act as strong relevance signals.
+- **Always hardcode the current year** — search engines use years as strong relevance signals. Vague terms like "latest" or "recent" produce stale results.
 - **Site-specific search:** prepend `site:example.com` to narrow results to a single domain.
 
 ## Tool Selection
