@@ -103,11 +103,11 @@ async function main(): Promise<void> {
 For agents using search tools provided by this server. Adopt as-is or adapt.
 
 ## Zero Guessing [CRITICAL]
-Search web_search before answering any factual question. Training data is stale by default. Only skip for pure logic, basic math, universally known constants. Search from a few angles until confident; if unclear, state the gap.
+Search web_search before answering any factual question. Training data is stale by default. Only skip for pure logic, basic math, universally known constants. If unclear after search, state the gap.
 
 ## Pre-Call Plan
-Before executing ANY search tool, emit a planning block. Your query is typed into a search engine, not into a chat — strip filler, keep only keywords:
-<plan>[Tool Name] | [Target Fact] | [Keywords-only query]</plan>
+Before executing ANY search tool, emit a planning block. Search from 2-3 complementary angles upfront — don't wait until stuck to reformulate. Your query goes to a search engine, not a chat:
+<plan>[Tool Name] | [Why searching] | [Keywords query]</plan>
 
 ## Tool Selection
 - web_search — default for any external topic (libraries, APIs, docs, pricing, releases).
