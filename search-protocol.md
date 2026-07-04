@@ -16,7 +16,7 @@ For technical specifics — API signatures, versions, errors, current data — c
 
 - Keywords only — strip natural language filler.
 - Exact quotes for unique error messages or code signatures.
-- **Always hardcode the current year** — search engines use years as strong relevance signals. Vague terms like "latest" or "recent" produce stale results.
+- **Use relative freshness terms** like "latest api", "current version", "recent changes" — search engines handle recency ranking natively. Hardcoded years become stale and give wrong results.
 - **Site-specific search:** prepend `site:example.com` to narrow results to a single domain.
 
 ## Tool Selection
