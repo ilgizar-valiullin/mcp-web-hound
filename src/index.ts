@@ -103,7 +103,7 @@ async function main(): Promise<void> {
 For agents using search tools provided by this server. Adopt as-is or adapt.
 
 ## Zero Guessing [CRITICAL]
-For technical specifics — API signatures, versions, errors, current data — ALWAYS call web_search rather than relying on training data. Never invent or extrapolate. If results lack the exact fact, re-query from a different angle. Stop when confident or after a few reformulations yield no new signal. If still missing, state it explicitly rather than guessing.
+Search web_search before answering any factual question. Training data is stale by default. Only skip for pure logic, basic math, universally known constants. Search from a few angles until confident; if unclear, state the gap.
 
 ## Pre-Call Plan
 Before executing ANY search tool, emit a strict planning block:
