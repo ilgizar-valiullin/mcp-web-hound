@@ -106,7 +106,7 @@ For agents using search tools provided by this server. Adopt as-is or adapt.
 Search web_search before answering any factual question. Training data is stale by default. Only skip for pure logic, basic math, universally known constants. Search from a few angles until confident; if unclear, state the gap.
 
 ## Pre-Call Plan
-Before executing ANY search tool, emit a planning block. Think like a search user, not a chat partner — strip all conversation context from your query:
+Before executing ANY search tool, emit a planning block. Your query is typed into a search engine, not into a chat — strip filler, keep only keywords:
 <plan>[Tool Name] | [Target Fact] | [Keywords-only query]</plan>
 
 ## Tool Selection
