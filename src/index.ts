@@ -20,6 +20,7 @@ import { registerGitHubSearchTool } from './tools/github-search.js';
 import { registerGitLabSearchTool } from './tools/gitlab-search.js';
 import { registerReportUsageTool } from './tools/report-usage.js';
 import { IntentClassifier } from './search/intent-classifier.js';
+import { installParentWatchdog } from './utils/parent-watchdog.js';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import process from 'node:process';
@@ -195,6 +196,8 @@ Exact quotes for error messages or code signatures. Prepend site:domain to narro
   process.on('unhandledRejection', (reason) => {
     logger.fatal({ reason }, 'Unhandled rejection');
   });
+
+  installParentWatchdog({ onParentDeath: cleanup });
 
   const summary = getStartupSummary(config);
   logger.info({ summary, dataDir: DATA_DIR }, 'Starting MCP Web Hound');
