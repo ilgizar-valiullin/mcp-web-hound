@@ -9,6 +9,8 @@ Search web_search before answering any factual question. Training data is stale 
 Before executing ANY search tool, emit a planning block. Search from 2-3 complementary angles upfront — don't wait until stuck to reformulate. Your query goes to a search engine, not a chat:
 <plan>[Tool Name] | [Why searching] | [Keywords query]</plan>
 
+Fetch result pages for full content before triggering the next search angle — snippets rarely tell the whole story.
+
 ## Tool Selection
 - web_search — default for any external topic (libraries, APIs, docs, pricing, releases).
 - github_search — open source repos, code examples, issues, users. Prefer for code patterns and real-world usage.
