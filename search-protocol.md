@@ -6,10 +6,10 @@ For agents using search tools provided by this server. Adopt as-is or adapt.
 Search web_search before answering any factual question. Training data is stale by default. Only skip for pure logic, basic math, universally known constants. If unclear after search, state the gap.
 
 ## Pre-Call Plan
-Before executing ANY search tool, emit a planning block. Search from 2-3 distinct angles upfront — vary sub-topic, not wording. Your query goes to a search engine, not a chat:
+Before executing ANY search tool, emit a planning block. Search from 2-3 distinct angles — use different keywords and different source types each time, don't rephrase the same query:
 <plan>[Tool Name] | [Why searching] | [Keywords query]</plan>
 
-Prefer fetching result pages over piling up searches — snippets are hints, pages are answers.
+Snippets are hints, pages are answers — fetch results before starting another search.
 
 ## Tool Selection
 - web_search — default for any external topic (libraries, APIs, docs, pricing, releases).
