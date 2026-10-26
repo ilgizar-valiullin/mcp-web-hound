@@ -20,6 +20,8 @@ import { registerGitHubSearchTool } from './tools/github-search.js';
 import { registerGitLabSearchTool } from './tools/gitlab-search.js';
 import { registerReportUsageTool } from './tools/report-usage.js';
 import { IntentClassifier } from './search/intent-classifier.js';
+import { ModelWorkerManager } from './models/manager.js';
+import { WorkerClassifier, WorkerEmbeddingService } from './models/facades.js';
 import { installParentWatchdog } from './utils/parent-watchdog.js';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
@@ -133,16 +135,48 @@ Exact quotes for error messages or code signatures. Prepend site:domain to narro
 
   let semanticCache: SemanticCache | undefined;
   let embeddingService: EmbeddingService | undefined;
+  let workerManager: ModelWorkerManager | undefined;
+  let classifier: IntentClassifier;
 
-  if (config.SEMANTIC_ENABLED) {
-    semanticCache = new SemanticCache(cache.getDb());
-    semanticCache.init();
-    embeddingService = new EmbeddingService();
-    await embeddingService.ensureLoaded();
-    logger.info('Semantic layer initialized');
+  if (config.MODEL_WORKER) {
+    workerManager = new ModelWorkerManager();
+    classifier = new WorkerClassifier(workerManager);
+    if (config.SEMANTIC_ENABLED) {
+      semanticCache = new SemanticCache(cache.getDb());
+      semanticCache.init();
+      embeddingService = new WorkerEmbeddingService(workerManager);
+      logger.info('Semantic layer lazy (cold start, models live in a private worker)');
+    } else {
+      logger.info('Semantic layer disabled, NLI runs in a private worker');
+    }
+    if (config.MODEL_PRELOAD) {
+      try {
+        await workerManager.ensureSpawned();
+        logger.info('Model worker prewarmed');
+      } catch (err) {
+        logger.warn({ err }, 'Model worker prewarm failed, will spawn on first search');
+      }
+    }
+  } else {
+    if (config.SEMANTIC_ENABLED) {
+      semanticCache = new SemanticCache(cache.getDb());
+      semanticCache.init();
+      embeddingService = new EmbeddingService();
+      if (config.MODEL_PRELOAD) {
+        await embeddingService.ensureLoaded();
+        logger.info('Semantic layer initialized (preloaded)');
+      } else {
+        logger.info('Semantic layer lazy (cold start, models load on first search)');
+      }
+    }
+
+    classifier = new IntentClassifier(
+      config.INTENT_CLASSIFIER_MODEL,
+      0.45,
+      undefined,
+      config.MODEL_IDLE_TIMEOUT_SEC * 1000,
+    );
   }
-
-  const classifier = new IntentClassifier(config.INTENT_CLASSIFIER_MODEL);
   const sessionStore = new SessionStore(
     config.SESSION_DEDUP_WINDOW_MINUTES,
     config.SESSION_DEDUP_STRETCH_MINUTES,
@@ -150,7 +184,13 @@ Exact quotes for error messages or code signatures. Prepend site:domain to narro
   const orchestrator = new Orchestrator(budgetManager, cache, router, semanticCache, embeddingService, classifier, sessionStore);
 
   registerSearchTool(server, orchestrator, classifier);
-  registerStatusTool(server, cache, router, budgetManager);
+  registerStatusTool(server, cache, router, budgetManager, {
+    embeddingService,
+    classifier,
+    worker: workerManager
+      ? { mode: 'worker', pid: workerManager.workerPid, lastKillVerified: workerManager.lastKillVerified }
+      : { mode: 'in-process', pid: null, lastKillVerified: null },
+  });
   registerGitHubSearchTool(server);
   registerReportUsageTool(server, cache);
 
@@ -165,6 +205,26 @@ Exact quotes for error messages or code signatures. Prepend site:domain to narro
     shuttingDown = true;
 
     logger.info('Shutting down server');
+
+    if (workerManager) {
+      try {
+        await workerManager.dispose();
+      } catch (err) {
+        logger.error({ err }, 'Error terminating model worker');
+      }
+    }
+
+    try {
+      embeddingService?.dispose();
+    } catch (err) {
+      logger.error({ err }, 'Error disposing embedding model');
+    }
+
+    try {
+      classifier.dispose();
+    } catch (err) {
+      logger.error({ err }, 'Error disposing NLI model');
+    }
 
     try {
       rateLimitStore.flush();

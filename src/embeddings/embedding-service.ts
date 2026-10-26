@@ -7,6 +7,7 @@ type FeatureExtractionPipeline = {
     dims: number[];
     size: number;
   }>;
+  dispose?: () => Promise<unknown>;
 };
 
 export class EmbeddingService {
@@ -14,18 +15,75 @@ export class EmbeddingService {
   private modelLoaded = false;
   private loadPromise: Promise<void> | null = null;
   private modelId: string;
+  private idleTimer: ReturnType<typeof setTimeout> | undefined;
+  private activeRequests = 0;
+  private readonly idleTimeoutMs: number;
 
-  constructor() {
+  constructor(idleTimeoutMs?: number) {
     const model = config.EMBEDDING_MODEL;
     this.modelId = model.startsWith('Xenova/') || model.startsWith('Xenova') ? model : `Xenova/${model}`;
+    this.idleTimeoutMs = idleTimeoutMs ?? config.MODEL_IDLE_TIMEOUT_SEC * 1000;
   }
 
   async ensureLoaded(): Promise<void> {
-    if (this.modelLoaded) return;
+    if (this.modelLoaded) {
+      this.touch();
+      return;
+    }
     if (this.loadPromise) return this.loadPromise;
 
     this.loadPromise = this.loadModel();
-    return this.loadPromise;
+    await this.loadPromise;
+    this.touch();
+  }
+
+  /** Free ONNX sessions + reset state. Safe to call anytime; reloads lazily on next embed(). */
+  dispose(): void {
+    if (this.activeRequests > 0) {
+      // Request in flight — defer unload until it finishes.
+      this.scheduleUnload();
+      return;
+    }
+    this.cancelUnload();
+    if (this.modelLoaded || this.pipeline) {
+      logger.info({ model: this.modelId }, 'Unloading embedding model after idle timeout');
+    }
+    const p = this.pipeline;
+    this.pipeline = null;
+    this.modelLoaded = false;
+    this.loadPromise = null;
+    // Actually release ONNX InferenceSessions — nulling refs alone keeps
+    // native/WASM memory committed until GC finalizers (which may never run).
+    if (p?.dispose) {
+      void Promise.resolve()
+        .then(() => p.dispose!())
+        .catch((err) => logger.warn({ err, model: this.modelId }, 'Embedding pipeline dispose failed'));
+    }
+  }
+
+  private touch(): void {
+    this.cancelUnload();
+    this.scheduleUnload();
+  }
+
+  private cancelUnload(): void {
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = undefined;
+    }
+  }
+
+  private scheduleUnload(): void {
+    if (this.idleTimeoutMs <= 0) return;
+    if (!this.modelLoaded) return;
+    if (this.idleTimer) return;
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = undefined;
+      this.dispose();
+    }, this.idleTimeoutMs);
+    if (typeof (this.idleTimer as unknown as NodeJS.Timeout).unref === 'function') {
+      (this.idleTimer as unknown as NodeJS.Timeout).unref();
+    }
   }
 
   private async loadModel(): Promise<void> {
@@ -49,37 +107,57 @@ export class EmbeddingService {
   }
 
   async embed(text: string, prefix: string = 'query'): Promise<number[]> {
-    await this.ensureLoaded();
+    this.activeRequests++;
+    this.cancelUnload();
+    try {
+      await this.ensureLoaded();
 
-    const prefixed = `${prefix}: ${text}`;
-    const result = await this.pipeline!(prefixed, {
-      pooling: 'mean',
-      normalize: true,
-    });
+      const prefixed = `${prefix}: ${text}`;
+      const result = await this.pipeline!(prefixed, {
+        pooling: 'mean',
+        normalize: true,
+      });
 
-    return Array.from(result.data);
+      return Array.from(result.data);
+    } finally {
+      this.activeRequests--;
+      if (this.activeRequests <= 0) {
+        this.activeRequests = 0;
+        this.touch();
+      }
+    }
   }
 
   async embedBatch(texts: string[], prefix: string = 'query'): Promise<number[][]> {
-    await this.ensureLoaded();
+    this.activeRequests++;
+    this.cancelUnload();
+    try {
+      await this.ensureLoaded();
 
-    const prefixed = texts.map((t) => `${prefix}: ${t}`);
-    const result = await this.pipeline!(prefixed, {
-      pooling: 'mean',
-      normalize: true,
-    });
+      const prefixed = texts.map((t) => `${prefix}: ${t}`);
+      const result = await this.pipeline!(prefixed, {
+        pooling: 'mean',
+        normalize: true,
+      });
 
-    const dims = result.dims;
-    const vectorDim = dims[dims.length - 1];
-    const vectors: number[][] = [];
+      const dims = result.dims;
+      const vectorDim = dims[dims.length - 1];
+      const vectors: number[][] = [];
 
-    for (let i = 0; i < texts.length; i++) {
-      const start = i * vectorDim;
-      const slice = result.data.slice(start, start + vectorDim);
-      vectors.push(Array.from(slice));
+      for (let i = 0; i < texts.length; i++) {
+        const start = i * vectorDim;
+        const slice = result.data.slice(start, start + vectorDim);
+        vectors.push(Array.from(slice));
+      }
+
+      return vectors;
+    } finally {
+      this.activeRequests--;
+      if (this.activeRequests <= 0) {
+        this.activeRequests = 0;
+        this.touch();
+      }
     }
-
-    return vectors;
   }
 
   static cosineSimilarity(a: number[], b: number[]): number {

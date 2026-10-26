@@ -4,7 +4,7 @@ import type { Config } from './types.js';
 type Category = 'provider_flag' | 'api_key' | 'token' | 'feature' | 'behavior' | 'limit';
 
 function inferCategory(key: string): Category {
-  if (key.startsWith('SEMANTIC_') || key.startsWith('RERANK_') || key.startsWith('INTENT_')) return 'feature';
+  if (key.startsWith('SEMANTIC_') || key.startsWith('RERANK_') || key.startsWith('INTENT_') || key.startsWith('MODEL_') || key.startsWith('EMBEDDING_')) return 'feature';
   if (key.endsWith('_ENABLED')) return 'provider_flag';
   if (key.endsWith('_API_KEY')) return 'api_key';
   if (key.endsWith('_TOKEN')) return 'token';

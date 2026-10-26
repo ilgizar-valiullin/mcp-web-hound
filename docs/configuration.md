@@ -132,6 +132,9 @@ All settings via `.env` file or environment variables.
 | `EMBEDDING_MODEL` | `multilingual-e5-small` | Embedding model name |
 | `EMBEDDING_DIMENSION` | `384` | Vector dimension |
 | `SEMANTIC_THRESHOLD` | `0.92` | Similarity threshold for cache hit |
+| `MODEL_IDLE_TIMEOUT_SEC` | `25` | Unload ONNX models after N sec idle (0 = never unload, cold-start saves ~350MB RAM) |
+| `MODEL_PRELOAD` | `false` | Preload embedding at startup (true = hot start, false = lazy cold start, +2-5s on first search) |
+| `MODEL_WORKER` | `true` | Run ONNX models in a private child process killed on idle (OS fully reclaims RAM; `false` = in-process with partial free) |
 
 ### Intent Classification & Reranking
 
@@ -140,6 +143,18 @@ All settings via `.env` file or environment variables.
 | `INTENT_CLASSIFIER_MODEL` | `Xenova/nli-deberta-v3-xsmall` | NLI model for intent classification + reranking (177M params, ONNX) |
 
 The classifier runs automatically on every search query — no `intent` parameter needed. The same NLI model scores each result's relevance for reranking. See [reranking.md](reranking.md).
+
+### Model worker (RAM lifecycle)
+
+With `MODEL_WORKER=true` (default) each MCP server spawns one private child
+(`dist/models/worker.js`) hosting the embedding + NLI pipelines:
+
+- Idle `MODEL_IDLE_TIMEOUT_SEC` → parent kills it with verified escalation
+  (`shutdown` → `SIGTERM` → `SIGKILL`, death confirmed via exit code + PID probe).
+- Parent death → worker suicides via IPC `disconnect` + PPID watchdog, so it
+  can never leak — death itself frees 100% of native ONNX memory instantly.
+- Worker crash/wedge → parent reaps it and degrades (safe fallbacks), never
+  crashes the server. `status` shows `worker_mode/worker_pid/worker_last_kill_verified`.
 
 ### Reranking
 
@@ -158,6 +173,6 @@ On startup, the server validates:
 2. **API key format** — if provided, checks key format
 3. **DATA_DIR** — hardcoded to `~/.config/mcp-web-hound/data`, created if missing
 4. **SQLite works** — test query on startup
-5. **Embedding model** — loaded if `SEMANTIC_ENABLED=true`
+5. **Embedding model** — lazy by default (`MODEL_PRELOAD=false`); loads on first search, unloads after `MODEL_IDLE_TIMEOUT_SEC` idle
 
 On critical errors: `process.exit(1)` with a clear message.

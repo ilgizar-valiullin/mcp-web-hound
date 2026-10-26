@@ -299,6 +299,12 @@ export const ConfigSchema = z.object({
     .describe('Cosine similarity threshold for semantic dedup'),
   INTENT_CLASSIFIER_MODEL: z.string().default('Xenova/nli-deberta-v3-xsmall')
     .describe('HuggingFace model for NLI-based intent classification'),
+  MODEL_IDLE_TIMEOUT_SEC: z.number().or(z.string().transform(Number)).default(25)
+    .describe('Unload ONNX models after N seconds idle (0 = never unload, cold-start saves ~350MB RAM)'),
+  MODEL_WORKER: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
+    .describe('Run ONNX models in a private child process killed on idle (OS fully reclaims RAM)'),
+  MODEL_PRELOAD: z.boolean().or(z.string().transform(v => v === 'true')).default(false)
+    .describe('Preload embedding model at startup (true = hot start, false = lazy cold start)'),
   RERANK_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
     .describe('Enable cross-encoder reranking for result relevance'),
   SEARCH_LOG_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(false)

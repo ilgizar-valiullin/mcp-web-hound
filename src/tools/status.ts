@@ -14,7 +14,7 @@ const pkg = require('../../package.json') as { version: string };
 const startTime = Date.now();
 
 function inferCategory(key: string): string {
-  if (key.startsWith('SEMANTIC_') || key.startsWith('RERANK_') || key.startsWith('INTENT_')) return 'feature';
+  if (key.startsWith('SEMANTIC_') || key.startsWith('RERANK_') || key.startsWith('INTENT_') || key.startsWith('MODEL_') || key.startsWith('EMBEDDING_')) return 'feature';
   if (key.endsWith('_ENABLED')) return 'provider_flag';
   if (key.endsWith('_API_KEY')) return 'api_key';
   if (key.endsWith('_TOKEN')) return 'token';
@@ -46,6 +46,11 @@ export function registerStatusTool(
   cache: SqliteCache,
   router: ProviderRouter,
   budgetManager: BudgetManager,
+  models?: {
+    embeddingService?: { isLoaded: boolean };
+    classifier?: { isLoaded: boolean };
+    worker?: { mode: string; pid: number | null; lastKillVerified: boolean | null };
+  },
 ): void {
   server.registerTool(
     'status',
@@ -76,6 +81,15 @@ export function registerStatusTool(
                     budget_window: `${config.BUDGET_WINDOW_MINUTES} minutes`,
                   },
                   embedding_model: config.SEMANTIC_ENABLED ? config.EMBEDDING_MODEL : 'disabled',
+                  models: {
+                    embedding_loaded: models?.embeddingService?.isLoaded ?? false,
+                    nli_loaded: models?.classifier?.isLoaded ?? false,
+                    idle_timeout_sec: config.MODEL_IDLE_TIMEOUT_SEC,
+                    preload: config.MODEL_PRELOAD,
+                    worker_mode: models?.worker?.mode ?? 'in-process',
+                    worker_pid: models?.worker?.pid ?? null,
+                    worker_last_kill_verified: models?.worker?.lastKillVerified ?? null,
+                  },
                   uptime_seconds: uptimeSeconds,
                   version: pkg.version,
                   config_file: ENV_PATH,
