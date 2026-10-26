@@ -184,12 +184,23 @@ Exact quotes for error messages or code signatures. Prepend site:domain to narro
   const orchestrator = new Orchestrator(budgetManager, cache, router, semanticCache, embeddingService, classifier, sessionStore);
 
   registerSearchTool(server, orchestrator, classifier);
+  // NOTE: worker pid/verified read via getters — a plain snapshot object here
+  // would freeze them at startup values (null) forever.
+  const workerInfo = workerManager
+    ? {
+        mode: 'worker' as const,
+        get pid(): number | null {
+          return workerManager?.workerPid ?? null;
+        },
+        get lastKillVerified(): boolean | null {
+          return workerManager?.lastKillVerified ?? null;
+        },
+      }
+    : { mode: 'in-process' as const, pid: null as number | null, lastKillVerified: null as boolean | null };
   registerStatusTool(server, cache, router, budgetManager, {
     embeddingService,
     classifier,
-    worker: workerManager
-      ? { mode: 'worker', pid: workerManager.workerPid, lastKillVerified: workerManager.lastKillVerified }
-      : { mode: 'in-process', pid: null, lastKillVerified: null },
+    worker: workerInfo,
   });
   registerGitHubSearchTool(server);
   registerReportUsageTool(server, cache);

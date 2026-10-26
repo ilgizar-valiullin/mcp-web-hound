@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.11.1] - 2026-10-26
+
+Fix `status` worker observability: `worker_pid` / `worker_last_kill_verified` were snapshotted once at startup (always null) instead of being read live. The worker lifecycle itself (spawn → serve → verified idle kill) was already correct.
+
 ## [1.11.0] - 2026-10-26
 
 Memory usage optimization. Previously, the reranker models started together with the server and consumed ~500MB of RAM; now they start on first reranker use and die after 25 seconds idle.
