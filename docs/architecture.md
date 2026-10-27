@@ -34,7 +34,7 @@ flowchart TD
 
 ### 1. MCP Transport Layer (`src/index.ts` + `src/mcp/`)
 
-Entry point. Hand-rolled minimal MCP over stdio (newline + Content-Length framing, zero dependencies — no `@modelcontextprotocol/sdk`): `initialize` (protocol negotiation, `instructions`), `ping`, `tools/list` (plain JSON schemas from `src/mcp/schemas.ts`), `tools/call` routed to handlers. Tools: `web_search`, `status`, `github_search`, `gitlab_search`, `report_search_usage`.
+Entry point. Hand-rolled minimal MCP over stdio (newline + Content-Length framing, zero dependencies — no `@modelcontextprotocol/sdk`): `initialize` (protocol negotiation, `instructions`), `ping`, `tools/list` (plain JSON schemas from `src/mcp/schemas.ts`), `tools/call` routed to handlers. Tools: `web_search`, `status`, `github_search`, `gitlab_search`, `report_search_usage` (only when `SEARCH_LOG_ENABLED=true`).
 
 **Responsibilities:**
 - Tool registration

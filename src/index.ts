@@ -161,8 +161,13 @@ Exact quotes for error messages or code signatures. Prepend site:domain to narro
       },
     }),
     makeGitHubSearchTool(),
-    makeReportUsageTool(hotReportUsage),
   ];
+
+  // report_search_usage only makes sense when search logging is enabled:
+  // without rows in search_logs it would always answer "Search ID not found".
+  if (config.SEARCH_LOG_ENABLED) {
+    tools.push(makeReportUsageTool(hotReportUsage));
+  }
 
   if (config.GITLAB_TOKEN) {
     tools.push(makeGitLabSearchTool());
