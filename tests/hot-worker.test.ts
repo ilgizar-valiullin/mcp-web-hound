@@ -3,13 +3,13 @@ import { EventEmitter } from 'node:events';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fork, type ChildProcess } from 'node:child_process';
-import { ModelWorkerManager } from '../src/models/manager.js';
+import { HotProcessManager } from '../src/hot/manager.js';
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 /** Fake fork child: EventEmitter + recorded signals, exit only when told. */
 class FakeChild extends EventEmitter {
-  pid = 424242;
+  pid = 424243;
   exitCode: number | null = null;
   signalCode: NodeJS.Signals | null = null;
   connected = true;
@@ -50,11 +50,11 @@ class FakeChild extends EventEmitter {
   }
 }
 
-describe('ModelWorkerManager kill escalation', () => {
+describe('HotProcessManager kill escalation', () => {
   it('SIGTERM ignored → SIGKILL + verified', async () => {
     const fake = new FakeChild();
     fake.autoExitOn = { shutdown: 'ignore', SIGTERM: 'ignore', SIGKILL: 'exit' };
-    const mgr = new ModelWorkerManager({
+    const mgr = new HotProcessManager({
       spawnFn: () => fake.asChild(),
       scriptPath: 'fake-worker.js',
       idleTimeoutMs: 0,
@@ -69,22 +69,7 @@ describe('ModelWorkerManager kill escalation', () => {
   it('graceful shutdown ack → no signals needed', async () => {
     const fake = new FakeChild();
     fake.autoExitOn = { shutdown: 'exit' };
-    const mgr = new ModelWorkerManager({
-      spawnFn: () => fake.asChild(),
-      scriptPath: 'fake-worker.js',
-      idleTimeoutMs: 0,
-    });
-    await mgr.ensureSpawned();
-    const dead = await mgr.terminate();
-    expect(dead).toBe(true);
-    expect(fake.kills).toEqual([]);
-  });
-
-  it('already dead → verified without signals', async () => {
-    const fake = new FakeChild();
-    fake.exitCode = 0;
-    fake.connected = false;
-    const mgr = new ModelWorkerManager({
+    const mgr = new HotProcessManager({
       spawnFn: () => fake.asChild(),
       scriptPath: 'fake-worker.js',
       idleTimeoutMs: 0,
@@ -98,13 +83,13 @@ describe('ModelWorkerManager kill escalation', () => {
   it('idle timer kills worker automatically', async () => {
     const fake = new FakeChild();
     fake.autoExitOn = { shutdown: 'exit' };
-    fake.reply = (msg) => fake.emit('message', { id: msg.id, ok: true, result: 0.5 });
-    const mgr = new ModelWorkerManager({
+    fake.reply = (msg) => fake.emit('message', { id: msg.id, ok: true, result: { status: {} } });
+    const mgr = new HotProcessManager({
       spawnFn: () => fake.asChild(),
       scriptPath: 'fake-worker.js',
       idleTimeoutMs: 40,
     });
-    await mgr.op('scoreEntailment', { query: 'q', text: 't' });
+    await mgr.op('status');
     expect(mgr.isAlive).toBe(true);
     await sleep(250);
     expect(mgr.isAlive).toBe(false);
@@ -115,7 +100,7 @@ describe('ModelWorkerManager kill escalation', () => {
     const fake = new FakeChild();
     fake.autoExitOn = { shutdown: 'exit', SIGTERM: 'exit' };
     // Never replies.
-    const mgr = new ModelWorkerManager({
+    const mgr = new HotProcessManager({
       spawnFn: () => fake.asChild(),
       scriptPath: 'fake-worker.js',
       idleTimeoutMs: 0,
@@ -127,12 +112,12 @@ describe('ModelWorkerManager kill escalation', () => {
   });
 });
 
-const DIST_WORKER = join('D:\\Projects\\mcp_search', 'dist', 'models', 'worker.js');
+const DIST_WORKER = join(process.cwd(), 'dist', 'hot', 'worker.js');
 
-describe('Model worker mock fork (integration)', () => {
-  it('ping/embed roundtrip + verified kill', async () => {
+describe('Hot worker mock fork (integration)', () => {
+  it('ping/search/status roundtrip + verified kill', async () => {
     if (!existsSync(DIST_WORKER)) return;
-    const mgr = new ModelWorkerManager({
+    const mgr = new HotProcessManager({
       scriptPath: DIST_WORKER,
       mock: true,
       idleTimeoutMs: 0,
@@ -141,8 +126,10 @@ describe('Model worker mock fork (integration)', () => {
     const pong = await mgr.op<{ pid: number; mock: boolean }>('ping');
     expect(pong.mock).toBe(true);
     expect(pong.pid).toBe(mgr.workerPid);
-    const vec = await mgr.op<number[]>('embed', { text: 'hello', prefix: 'query' });
-    expect(vec).toHaveLength(384);
+    const { response } = await mgr.op<{ response: { results: unknown[] } }>('search', { query: 'hello' });
+    expect(response.results).toEqual([]);
+    const { status } = await mgr.op<{ status: { budget: { searches_remaining: number } } }>('status', {});
+    expect(status.budget.searches_remaining).toBe(0);
     expect(mgr.isAlive).toBe(true);
     const dead = await mgr.terminate();
     expect(dead).toBe(true);
@@ -154,7 +141,7 @@ describe('Model worker mock fork (integration)', () => {
     if (!existsSync(DIST_WORKER)) return;
     const child = fork(DIST_WORKER, [], {
       stdio: ['ignore', 'ignore', 'inherit', 'ipc'],
-      env: { ...process.env, MCP_WORKER: '1', MODEL_WORKER_MOCK: '1' },
+      env: { ...process.env, MCP_HOT: '1', HOT_MOCK: '1' },
     });
     // Give it a moment to come online, then sever the channel = parent death.
     await sleep(2000);

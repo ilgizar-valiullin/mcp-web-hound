@@ -1,17 +1,24 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { SqliteCache } from '../cache/sqlite.js';
-import { ProviderRouter } from '../search/provider-router.js';
-import { BudgetManager } from '../limits/budget-manager.js';
 import { config } from '../utils/config.js';
 import { ENV_PATH } from '../utils/env-path.js';
 import { logger } from '../utils/logger.js';
-import { ConfigSchema } from '../utils/types.js';
-import { createRequire } from 'node:module';
-
-const require = createRequire(import.meta.url);
-const pkg = require('../../package.json') as { version: string };
+import { FIELD_DEFS } from '../utils/types.js';
+import type { HotStatusResult } from '../hot/protocol.js';
+import type { ToolDef } from '../mcp/schemas.js';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const startTime = Date.now();
+
+function pkgVersion(): string {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const pkg = JSON.parse(readFileSync(resolve(here, '../../package.json'), 'utf-8')) as { version?: string };
+    return pkg.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
 
 function inferCategory(key: string): string {
   if (key.startsWith('SEMANTIC_') || key.startsWith('RERANK_') || key.startsWith('INTENT_') || key.startsWith('MODEL_') || key.startsWith('EMBEDDING_')) return 'feature';
@@ -23,12 +30,11 @@ function inferCategory(key: string): string {
 }
 
 function getConfigHelp(): Array<{ key: string; category: string; description: string; value: unknown }> {
-  const shape = ConfigSchema.shape as Record<string, any>;
   const help: Array<{ key: string; category: string; description: string; value: unknown }> = [];
 
-  for (const key of Object.keys(shape)) {
-    const type = shape[key];
-    const description = type.description ?? '';
+  for (const def of FIELD_DEFS) {
+    const key = def.key;
+    const description = def.description ?? '';
     if (!description) continue;
     help.push({
       key,
@@ -41,28 +47,19 @@ function getConfigHelp(): Array<{ key: string; category: string; description: st
   return help.sort((a, b) => `${a.category}:${a.key}`.localeCompare(`${b.category}:${b.key}`));
 }
 
-export function registerStatusTool(
-  server: McpServer,
-  cache: SqliteCache,
-  router: ProviderRouter,
-  budgetManager: BudgetManager,
-  models?: {
-    embeddingService?: { isLoaded: boolean };
-    classifier?: { isLoaded: boolean };
-    worker?: { mode: string; pid: number | null; lastKillVerified: boolean | null };
-  },
-): void {
-  server.registerTool(
-    'status',
-    {
-      description: 'Get server diagnostics, provider health, and budget state',
-    },
-    async () => {
+/** Thin adapter: cache/provider/budget/model stats come from the hot worker. */
+export function makeStatusTool(
+  statusFn: () => Promise<HotStatusResult>,
+  worker?: { mode: string; pid: number | null; lastKillVerified: boolean | null },
+): ToolDef {
+  return {
+    name: 'status',
+    description: 'Get server diagnostics, provider health, and budget state',
+    inputSchema: { type: 'object', properties: {} },
+    run: async () => {
       try {
         const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
-        const cacheStats = cache.getStats();
-        const providerStats = router.getProviderStats();
-        const remaining = budgetManager.getRemaining();
+        const hot = await statusFn();
 
         const configModel = `2-tier: server .env (${ENV_PATH}) + optional project .env overrides. Agents use configure --json set. NEVER write to project .env.`;
 
@@ -73,25 +70,25 @@ export function registerStatusTool(
               text: JSON.stringify(
                 {
                   config_model: configModel,
-                  providers: providerStats,
-                  cache: cacheStats,
+                  providers: hot.providers,
+                  cache: hot.cache,
                   budget: {
-                    searches_remaining: remaining.searches,
-                    fetches_remaining: remaining.fetches,
+                    searches_remaining: hot.budget.searches_remaining,
+                    fetches_remaining: hot.budget.fetches_remaining,
                     budget_window: `${config.BUDGET_WINDOW_MINUTES} minutes`,
                   },
                   embedding_model: config.SEMANTIC_ENABLED ? config.EMBEDDING_MODEL : 'disabled',
                   models: {
-                    embedding_loaded: models?.embeddingService?.isLoaded ?? false,
-                    nli_loaded: models?.classifier?.isLoaded ?? false,
+                    embedding_loaded: hot.models.embedding_loaded,
+                    nli_loaded: hot.models.nli_loaded,
                     idle_timeout_sec: config.MODEL_IDLE_TIMEOUT_SEC,
                     preload: config.MODEL_PRELOAD,
-                    worker_mode: models?.worker?.mode ?? 'in-process',
-                    worker_pid: models?.worker?.pid ?? null,
-                    worker_last_kill_verified: models?.worker?.lastKillVerified ?? null,
+                    worker_mode: worker?.mode ?? 'hot',
+                    worker_pid: worker?.pid ?? null,
+                    worker_last_kill_verified: worker?.lastKillVerified ?? null,
                   },
                   uptime_seconds: uptimeSeconds,
-                  version: pkg.version,
+                  version: pkgVersion(),
                   config_file: ENV_PATH,
                   config_help: getConfigHelp(),
                 },
@@ -109,5 +106,5 @@ export function registerStatusTool(
         };
       }
     },
-  );
+  };
 }

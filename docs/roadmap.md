@@ -151,14 +151,14 @@ gantt
 |----------|-----------|---------|
 | Runtime | Node.js | >= 20 |
 | Language | TypeScript | >= 5.3 |
-| MCP SDK | `@modelcontextprotocol/sdk` | latest |
-| Database | better-sqlite3 | latest |
-| Vector | sqlite-vec | latest |
-| Validation | zod | latest |
-| HTML parsing | @mozilla/readability | latest |
-| DOM | linkedom | latest |
-| Markdown | turndown | latest |
-| Embeddings | @xenova/transformers | latest |
+| MCP transport | hand-rolled minimal MCP over stdio (`src/mcp/`, zero deps) | — |
+| Database | better-sqlite3 | 12.11.1 |
+| Vector | sqlite-vec | 0.1.9 |
+| Validation | manual (no zod) | — |
+| HTML parsing | removed (no fetch layer since c83183f) | — |
+| DOM | removed | — |
+| Markdown | removed | — |
+| Embeddings | @xenova/transformers | 2.17.2 |
 | HTTP | undici (built-in fetch) | built-in |
 | Config | dotenv | latest |
 | Logging | pino | latest |

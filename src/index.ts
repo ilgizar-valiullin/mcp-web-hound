@@ -1,37 +1,37 @@
 #!/usr/bin/env node
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { config, buildProviderLimits } from './utils/config.js';
+import { config } from './utils/config.js';
 import { DATA_DIR, ENV_PATH } from './utils/env-path.js';
 import { logger } from './utils/logger.js';
 import { getStartupSummary } from './utils/config-help.js';
-import { SqliteCache } from './cache/sqlite.js';
-import { SemanticCache } from './cache/semantic-cache.js';
-import { BudgetManager } from './limits/budget-manager.js';
-import { SessionStore } from './limits/session-store.js';
-import { RateLimitStore } from './limits/rate-limit-store.js';
-import { ProviderRouter } from './search/provider-router.js';
-import { Orchestrator } from './search/orchestrator.js';
-import { EmbeddingService } from './embeddings/embedding-service.js';
-import { registerSearchTool } from './tools/search.js';
-import { registerStatusTool } from './tools/status.js';
-import { registerGitHubSearchTool } from './tools/github-search.js';
-import { registerGitLabSearchTool } from './tools/gitlab-search.js';
-import { registerReportUsageTool } from './tools/report-usage.js';
-import { IntentClassifier } from './search/intent-classifier.js';
-import { ModelWorkerManager } from './models/manager.js';
-import { WorkerClassifier, WorkerEmbeddingService } from './models/facades.js';
+import { makeSearchTool } from './tools/search.js';
+import { makeStatusTool } from './tools/status.js';
+import { makeGitHubSearchTool } from './tools/github-search.js';
+import { makeGitLabSearchTool } from './tools/gitlab-search.js';
+import { makeReportUsageTool } from './tools/report-usage.js';
+import { HotProcessManager } from './hot/manager.js';
+import type { HotStatusResult } from './hot/protocol.js';
+import type { SearchResponse } from './utils/types.js';
+import { serveMcp } from './mcp/server.js';
+import type { ToolDef } from './mcp/schemas.js';
 import { installParentWatchdog } from './utils/parent-watchdog.js';
-import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import process from 'node:process';
 
-const require = createRequire(import.meta.url);
-const pkg = require('../package.json') as { version: string };
+function pkgVersion(): string {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const pkg = JSON.parse(readFileSync(resolve(here, '../package.json'), 'utf-8')) as { version?: string };
+    return pkg.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
 
 const SERVER_NAME = 'mcp-web-hound';
-const SERVER_VERSION = pkg.version;
+const SERVER_VERSION = pkgVersion();
 
 function printHelp(): void {
   const repoUrl = 'https://github.com/ilgizar-valiullin/mcp-web-hound';
@@ -91,17 +91,7 @@ async function main(): Promise<void> {
     printHelp();
     return;
   }
-  const server = new McpServer(
-    {
-      name: SERVER_NAME,
-      version: SERVER_VERSION,
-      description: 'Unified search() tool for AI agents — hiding providers, caching, reranking, and rate limits',
-    },
-    {
-      capabilities: {
-        tools: {},
-      },
-      instructions: `# Search Protocol — mcp-web-hound
+  const instructions = `# Search Protocol — mcp-web-hound
 
 For agents using search tools provided by this server. Adopt as-is or adapt.
 
@@ -124,142 +114,72 @@ Cite sources. If you can't confirm a claim, search first.
 ## Query Formatting
 Exact quotes for error messages or code signatures. Prepend site:domain to narrow results. Use relative freshness terms like "latest api", "current version", "recent changes" — search engines handle recency ranking natively. Hardcoded years become stale and give wrong results.
 
-`,
-    },
-  );
+`;
 
-  const cache = new SqliteCache();
-  const budgetManager = new BudgetManager();
-  const rateLimitStore = new RateLimitStore(DATA_DIR, buildProviderLimits(config));
-  const router = new ProviderRouter(rateLimitStore);
+  // Thin main: the entire heavy stack (SQLite/vec, router, orchestrator, models)
+  // lives in a single hot child, spawned on first tool call and killed on
+  // idle (MODEL_IDLE_TIMEOUT_SEC). Cold main holds only MCP + config + logger.
+  const hotManager = new HotProcessManager();
 
-  let semanticCache: SemanticCache | undefined;
-  let embeddingService: EmbeddingService | undefined;
-  let workerManager: ModelWorkerManager | undefined;
-  let classifier: IntentClassifier;
+  async function hotSearch(query: string): Promise<SearchResponse> {
+    const { response } = await hotManager.op<{ response: SearchResponse }>('search', { query });
+    return response;
+  }
 
-  if (config.MODEL_WORKER) {
-    workerManager = new ModelWorkerManager();
-    classifier = new WorkerClassifier(workerManager);
-    if (config.SEMANTIC_ENABLED) {
-      semanticCache = new SemanticCache(cache.getDb());
-      semanticCache.init();
-      embeddingService = new WorkerEmbeddingService(workerManager);
-      logger.info('Semantic layer lazy (cold start, models live in a private worker)');
-    } else {
-      logger.info('Semantic layer disabled, NLI runs in a private worker');
-    }
-    if (config.MODEL_PRELOAD) {
-      try {
-        await workerManager.ensureSpawned();
-        logger.info('Model worker prewarmed');
-      } catch (err) {
-        logger.warn({ err }, 'Model worker prewarm failed, will spawn on first search');
-      }
+  async function hotStatus(): Promise<HotStatusResult> {
+    const { status } = await hotManager.op<{ status: HotStatusResult }>('status', {});
+    return status;
+  }
+
+  async function hotReportUsage(search_id: string, used_doc_ids: string[]): Promise<boolean> {
+    const { updated } = await hotManager.op<{ updated: boolean }>('reportUsage', { search_id, used_doc_ids });
+    return updated;
+  }
+
+  if (config.MODEL_PRELOAD) {
+    try {
+      await hotManager.ensureSpawned();
+      logger.info('Hot worker prewarmed');
+    } catch (err) {
+      logger.warn({ err }, 'Hot worker prewarm failed, will spawn on first search');
     }
   } else {
-    if (config.SEMANTIC_ENABLED) {
-      semanticCache = new SemanticCache(cache.getDb());
-      semanticCache.init();
-      embeddingService = new EmbeddingService();
-      if (config.MODEL_PRELOAD) {
-        await embeddingService.ensureLoaded();
-        logger.info('Semantic layer initialized (preloaded)');
-      } else {
-        logger.info('Semantic layer lazy (cold start, models load on first search)');
-      }
-    }
-
-    classifier = new IntentClassifier(
-      config.INTENT_CLASSIFIER_MODEL,
-      0.45,
-      undefined,
-      config.MODEL_IDLE_TIMEOUT_SEC * 1000,
-    );
+    logger.info('Hot worker lazy (cold start, spawns on first tool call)');
   }
-  const sessionStore = new SessionStore(
-    config.SESSION_DEDUP_WINDOW_MINUTES,
-    config.SESSION_DEDUP_STRETCH_MINUTES,
-  );
-  const orchestrator = new Orchestrator(budgetManager, cache, router, semanticCache, embeddingService, classifier, sessionStore);
 
-  registerSearchTool(server, orchestrator, classifier);
-  // NOTE: worker pid/verified read via getters — a plain snapshot object here
-  // would freeze them at startup values (null) forever.
-  const workerInfo = workerManager
-    ? {
-        mode: 'worker' as const,
-        get pid(): number | null {
-          return workerManager?.workerPid ?? null;
-        },
-        get lastKillVerified(): boolean | null {
-          return workerManager?.lastKillVerified ?? null;
-        },
-      }
-    : { mode: 'in-process' as const, pid: null as number | null, lastKillVerified: null as boolean | null };
-  registerStatusTool(server, cache, router, budgetManager, {
-    embeddingService,
-    classifier,
-    worker: workerInfo,
-  });
-  registerGitHubSearchTool(server);
-  registerReportUsageTool(server, cache);
+  const tools: ToolDef[] = [
+    makeSearchTool(hotSearch),
+    // NOTE: worker pid/verified read via getters — a plain snapshot object here
+    // would freeze them at startup values (null) forever.
+    makeStatusTool(hotStatus, {
+      mode: 'hot' as const,
+      get pid(): number | null {
+        return hotManager.workerPid;
+      },
+      get lastKillVerified(): boolean | null {
+        return hotManager.lastKillVerified;
+      },
+    }),
+    makeGitHubSearchTool(),
+    makeReportUsageTool(hotReportUsage),
+  ];
 
   if (config.GITLAB_TOKEN) {
-    registerGitLabSearchTool(server);
+    tools.push(makeGitLabSearchTool());
   }
 
-  let shuttingDown = false;
-
   async function cleanup(): Promise<void> {
-    if (shuttingDown) return;
-    shuttingDown = true;
-
     logger.info('Shutting down server');
 
-    if (workerManager) {
-      try {
-        await workerManager.dispose();
-      } catch (err) {
-        logger.error({ err }, 'Error terminating model worker');
-      }
-    }
-
     try {
-      embeddingService?.dispose();
+      await hotManager.dispose();
     } catch (err) {
-      logger.error({ err }, 'Error disposing embedding model');
-    }
-
-    try {
-      classifier.dispose();
-    } catch (err) {
-      logger.error({ err }, 'Error disposing NLI model');
-    }
-
-    try {
-      rateLimitStore.flush();
-    } catch (err) {
-      logger.error({ err }, 'Error flushing rate limit store');
-    }
-
-    try {
-      cache.close();
-    } catch (err) {
-      logger.error({ err }, 'Error closing cache');
-    }
-
-    try {
-      await server.close();
-    } catch (err) {
-      logger.error({ err }, 'Error during server shutdown');
+      logger.error({ err }, 'Error terminating hot worker');
     }
 
     logger.info('Server shut down complete');
   }
 
-  process.on('SIGINT', async () => { await cleanup(); process.exit(0); });
-  process.on('SIGTERM', async () => { await cleanup(); process.exit(0); });
   process.on('uncaughtException', (err) => {
     logger.fatal({ err }, 'Uncaught exception');
     process.exit(1);
@@ -268,13 +188,18 @@ Exact quotes for error messages or code signatures. Prepend site:domain to narro
     logger.fatal({ reason }, 'Unhandled rejection');
   });
 
-  installParentWatchdog({ onParentDeath: cleanup });
+  installParentWatchdog({ onParentDeath: () => void cleanup() });
 
   const summary = getStartupSummary(config);
   logger.info({ summary, dataDir: DATA_DIR }, 'Starting MCP Web Hound');
 
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  await serveMcp({
+    name: SERVER_NAME,
+    version: SERVER_VERSION,
+    instructions,
+    tools,
+    onShutdown: cleanup,
+  });
   logger.info('Server connected and listening on stdio');
 }
 

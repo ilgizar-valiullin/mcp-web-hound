@@ -132,9 +132,9 @@ All settings via `.env` file or environment variables.
 | `EMBEDDING_MODEL` | `multilingual-e5-small` | Embedding model name |
 | `EMBEDDING_DIMENSION` | `384` | Vector dimension |
 | `SEMANTIC_THRESHOLD` | `0.92` | Similarity threshold for cache hit |
-| `MODEL_IDLE_TIMEOUT_SEC` | `25` | Unload ONNX models after N sec idle (0 = never unload, cold-start saves ~350MB RAM) |
-| `MODEL_PRELOAD` | `false` | Preload embedding at startup (true = hot start, false = lazy cold start, +2-5s on first search) |
-| `MODEL_WORKER` | `true` | Run ONNX models in a private child process killed on idle (OS fully reclaims RAM; `false` = in-process with partial free) |
+| `MODEL_IDLE_TIMEOUT_SEC` | `5` | Kill hot worker after N sec idle (0 = never; hot start ~1-2s, first semantic search loads models) |
+| `MODEL_PRELOAD` | `false` | Preload hot worker at startup (true = hot start, false = lazy cold start) |
+| `MODEL_WORKER` | `true` | Legacy flag, kept for compat; the hot worker always hosts models in-process |
 
 ### Intent Classification & Reranking
 
@@ -144,17 +144,23 @@ All settings via `.env` file or environment variables.
 
 The classifier runs automatically on every search query — no `intent` parameter needed. The same NLI model scores each result's relevance for reranking. See [reranking.md](reranking.md).
 
-### Model worker (RAM lifecycle)
+### Hot worker (RAM lifecycle)
 
-With `MODEL_WORKER=true` (default) each MCP server spawns one private child
-(`dist/models/worker.js`) hosting the embedding + NLI pipelines:
+The main server is thin (MCP + config + logging only). The entire heavy stack —
+SQLite cache (+sqlite-vec), rate limits, provider router, orchestrator, ONNX
+models — lives in one private hot child (`dist/hot/worker.js`), spawned on the
+first tool call:
 
-- Idle `MODEL_IDLE_TIMEOUT_SEC` → parent kills it with verified escalation
+- Idle `MODEL_IDLE_TIMEOUT_SEC` (default 5s) → parent kills it with verified escalation
   (`shutdown` → `SIGTERM` → `SIGKILL`, death confirmed via exit code + PID probe).
+  Death frees 100% of native memory — including sqlite-vec pages, which cannot
+  be unloaded any other way.
 - Parent death → worker suicides via IPC `disconnect` + PPID watchdog, so it
-  can never leak — death itself frees 100% of native ONNX memory instantly.
-- Worker crash/wedge → parent reaps it and degrades (safe fallbacks), never
-  crashes the server. `status` shows `worker_mode/worker_pid/worker_last_kill_verified`.
+  can never leak.
+- Worker crash/wedge → parent reaps it and the next op respawns fresh; provider
+  errors never crash the server. `status` shows `worker_mode/worker_pid/worker_last_kill_verified`.
+- In-RAM dedup/budget windows live and die with the hot worker (documented
+  tradeoff for a rarely-called tool: cold footprint wins over cross-call dedup).
 
 ### Reranking
 
@@ -173,6 +179,6 @@ On startup, the server validates:
 2. **API key format** — if provided, checks key format
 3. **DATA_DIR** — hardcoded to `~/.config/mcp-web-hound/data`, created if missing
 4. **SQLite works** — test query on startup
-5. **Embedding model** — lazy by default (`MODEL_PRELOAD=false`); loads on first search, unloads after `MODEL_IDLE_TIMEOUT_SEC` idle
+5. **Hot worker + models** — lazy by default (`MODEL_PRELOAD=false`); spawns on first tool call, dies after `MODEL_IDLE_TIMEOUT_SEC` idle
 
 On critical errors: `process.exit(1)` with a clear message.

@@ -8,7 +8,22 @@ permissions:
   id-token: write
 
 jobs:
+  smoke-global:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npm pack --pack-destination /tmp
+      - run: npm i -g /tmp/mcp-web-hound-*.tgz
+      - run: mcp-web-hound --help
+      - run: mcp-web-hound configure --json get
   publish:
+    needs: smoke-global
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

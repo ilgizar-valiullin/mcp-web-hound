@@ -4,21 +4,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
+import type { HotOp } from './protocol.js';
 
-export type WorkerOp =
-  | 'ping'
-  | 'stats'
-  | 'embed'
-  | 'embedBatch'
-  | 'classify'
-  | 'classifyFreshness'
-  | 'scoreEntailment'
-  | 'shutdown';
-
-export class WorkerSpawnError extends Error {
+export class HotSpawnError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'WorkerSpawnError';
+    this.name = 'HotSpawnError';
   }
 }
 
@@ -28,12 +19,12 @@ interface Pending {
   timer: ReturnType<typeof setTimeout>;
 }
 
-export interface ManagerOptions {
-  /** Override worker script path (tests). Default: dist/models/worker.js next to this file. */
+export interface HotManagerOptions {
+  /** Override worker script path (tests). Default: dist/hot/worker.js next to this file. */
   scriptPath?: string;
   /** Override child_process.fork (tests). */
   spawnFn?: (script: string, env: NodeJS.ProcessEnv) => ChildProcess;
-  /** Start worker with MODEL_WORKER_MOCK=1 (tests, no model download). */
+  /** Start worker with HOT_MOCK=1 (tests, no DB/models). */
   mock?: boolean;
   /** Idle timeout before kill (ms). Default from MODEL_IDLE_TIMEOUT_SEC. */
   idleTimeoutMs?: number;
@@ -67,13 +58,14 @@ function exitedWithin(child: ChildProcess, ms: number): Promise<boolean> {
 }
 
 /**
- * Private model-worker lifecycle: one child per MCP server, killed on idle.
- * Kill is verified (graceful → SIGTERM → SIGKILL escalation); if the child
- * somehow survives, it is reported — never silently leaked.
+ * Hot-process lifecycle: one child per MCP server, owns DB/vec/router/models.
+ * Spawned on first tool call, killed on idle (default 5s) — the OS reclaims
+ * ALL native memory (sqlite-vec pages can't be unloaded any other way).
+ * Kill is verified (graceful → SIGTERM → SIGKILL escalation).
  */
-export class ModelWorkerManager {
+export class HotProcessManager {
   private child: ChildProcess | null = null;
-  private pendings = new Map<number, Pending>();
+  private resolvers = new Map<number, Pending>();
   private nextId = 1;
   private killTimer: ReturnType<typeof setTimeout> | undefined;
   private activeOps = 0;
@@ -84,10 +76,9 @@ export class ModelWorkerManager {
   private readonly idleTimeoutMs: number;
   private readonly requestTimeoutMs: number;
 
-  flags = { embeddingLoaded: false, nliLoaded: false };
   lastKillVerified: boolean | null = null;
 
-  constructor(opts: ManagerOptions = {}) {
+  constructor(opts: HotManagerOptions = {}) {
     this.spawnFn = opts.spawnFn ?? defaultSpawn;
     this.mock = opts.mock ?? false;
     this.idleTimeoutMs = opts.idleTimeoutMs ?? config.MODEL_IDLE_TIMEOUT_SEC * 1000;
@@ -118,58 +109,56 @@ export class ModelWorkerManager {
     if (this.terminating) await this.terminating;
     if (this.isAlive) return;
     if (!this.scriptPath) {
-      throw new WorkerSpawnError('Model worker script not found (dist/models/worker.js missing)');
+      throw new HotSpawnError('Hot worker script not found (dist/hot/worker.js missing)');
     }
-    const env: NodeJS.ProcessEnv = { ...process.env, MCP_WORKER: '1' };
-    if (this.mock) env.MODEL_WORKER_MOCK = '1';
+    const env: NodeJS.ProcessEnv = { ...process.env, MCP_HOT: '1' };
+    if (this.mock) env.HOT_MOCK = '1';
     let child: ChildProcess;
     try {
       child = this.spawnFn(this.scriptPath, env);
     } catch (err) {
-      throw new WorkerSpawnError(`Model worker fork failed: ${err instanceof Error ? err.message : String(err)}`);
+      throw new HotSpawnError(`Hot worker fork failed: ${err instanceof Error ? err.message : String(err)}`);
     }
     this.child = child;
-    this.flags = { embeddingLoaded: false, nliLoaded: false };
     child.on('message', (msg: unknown) => this.onMessage(msg));
     child.on('error', (err) => {
-      logger.error({ err }, 'Model worker error');
-      this.failAllPending(new Error(`Model worker error: ${err.message}`));
+      logger.error({ err }, 'Hot worker error');
+      this.failAllPending(new Error(`Hot worker error: ${err.message}`));
     });
     child.on('exit', (code, signal) => {
-      logger.info({ code, signal }, 'Model worker exited');
+      logger.info({ code, signal }, 'Hot worker exited');
       if (this.child === child) this.child = null;
-      this.failAllPending(new Error(`Model worker exited (code=${code} signal=${signal})`));
+      this.failAllPending(new Error(`Hot worker exited (code=${code} signal=${signal})`));
     });
-    logger.info({ pid: child.pid }, 'Model worker spawned');
+    logger.info({ pid: child.pid }, 'Hot worker spawned');
   }
 
   /** Single request/response roundtrip with timeout. Never hangs forever. */
-  async op<T>(op: WorkerOp, args: Record<string, unknown> = {}): Promise<T> {
+  async op<T>(op: HotOp, args: Record<string, unknown> = {}): Promise<T> {
     this.activeOps++;
     this.cancelKillTimer();
     try {
       await this.ensureSpawned();
       const child = this.child;
-      if (!child) throw new Error('Model worker not running');
+      if (!child) throw new Error('Hot worker not running');
       const id = this.nextId++;
       const payload = await new Promise<unknown>((resolve, reject) => {
         const timer = setTimeout(() => {
-          this.pendings.delete(id);
-          reject(new Error(`Model worker op '${op}' timed out`));
+          this.resolvers.delete(id);
+          reject(new Error(`Hot worker op '${op}' timed out`));
         }, this.requestTimeoutMs);
         if (typeof (timer as unknown as NodeJS.Timeout).unref === 'function') {
           (timer as unknown as NodeJS.Timeout).unref();
         }
-        this.pendings.set(id, { resolve: resolve as (v: unknown) => void, reject, timer });
+        this.resolvers.set(id, { resolve: resolve as (v: unknown) => void, reject, timer });
         try {
           child.send({ id, op, args });
         } catch (err) {
-          this.pendings.delete(id);
+          this.resolvers.delete(id);
           clearTimeout(timer);
           reject(err instanceof Error ? err : new Error(String(err)));
         }
       });
-      this.markLoaded(op);
       return payload as T;
     } catch (err) {
       // Suspect a wedged worker — reap it so the next op respawns fresh.
@@ -215,7 +204,7 @@ export class ModelWorkerManager {
     }
     if (await exitedWithin(child, 1500)) return this.verify(child, pid, 'shutdown');
 
-    logger.warn({ pid }, 'Model worker ignored shutdown, SIGTERM');
+    logger.warn({ pid }, 'Hot worker ignored shutdown, SIGTERM');
     try {
       child.kill('SIGTERM');
     } catch (err) {
@@ -223,7 +212,7 @@ export class ModelWorkerManager {
     }
     if (await exitedWithin(child, 2000)) return this.verify(child, pid, 'SIGTERM');
 
-    logger.warn({ pid }, 'Model worker survived SIGTERM, SIGKILL');
+    logger.warn({ pid }, 'Hot worker survived SIGTERM, SIGKILL');
     try {
       child.kill('SIGKILL');
     } catch (err) {
@@ -244,12 +233,11 @@ export class ModelWorkerManager {
       }
     }
     if (dead && this.child === child) this.child = null;
-    this.flags = { embeddingLoaded: false, nliLoaded: false };
     this.lastKillVerified = dead;
     if (dead) {
-      logger.info({ pid, via }, 'Model worker kill verified');
+      logger.info({ pid, via }, 'Hot worker kill verified');
     } else {
-      logger.fatal({ pid, via }, 'Model worker SURVIVED kill escalation — leaked process');
+      logger.fatal({ pid, via }, 'Hot worker SURVIVED kill escalation — leaked process');
     }
     return dead;
   }
@@ -257,27 +245,20 @@ export class ModelWorkerManager {
   private onMessage(msg: unknown): void {
     const m = msg as { id?: number; ok?: boolean; result?: unknown; error?: string } | null;
     if (!m || typeof m.id !== 'number' || m.id === 0) return;
-    const pending = this.pendings.get(m.id);
+    const pending = this.resolvers.get(m.id);
     if (!pending) return;
-    this.pendings.delete(m.id);
+    this.resolvers.delete(m.id);
     clearTimeout(pending.timer);
     if (m.ok) pending.resolve(m.result);
-    else pending.reject(new Error(m.error ?? 'Model worker op failed'));
+    else pending.reject(new Error(m.error ?? 'Hot worker op failed'));
   }
 
   private failAllPending(err: Error): void {
-    for (const [, p] of this.pendings) {
+    for (const [, p] of this.resolvers) {
       clearTimeout(p.timer);
       p.reject(err);
     }
-    this.pendings.clear();
-  }
-
-  private markLoaded(op: WorkerOp): void {
-    if (op === 'embed' || op === 'embedBatch') this.flags.embeddingLoaded = true;
-    if (op === 'classify' || op === 'classifyFreshness' || op === 'scoreEntailment') {
-      this.flags.nliLoaded = true;
-    }
+    this.resolvers.clear();
   }
 
   private cancelKillTimer(): void {

@@ -1,16 +1,8 @@
-import { z } from 'zod';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
+import { validators, type ToolDef } from '../mcp/schemas.js';
 
-export function registerGitHubSearchTool(server: McpServer): void {
-  const schema = z.object({
-    query: z.string().min(1, 'Query cannot be empty'),
-    type: z.enum(['repositories', 'code', 'issues', 'users']).default('repositories'),
-    language: z.string().optional(),
-    stars: z.string().optional(),
-    page: z.number().int().min(1).default(1),
-  });
+export function makeGitHubSearchTool(): ToolDef {
 
 interface GitHubRepo {
   full_name: string;
@@ -54,15 +46,32 @@ function buildQuery(query: string, language?: string, stars?: string): string {
   return parts.join('+');
 }
 
-  server.registerTool(
-    'github_search',
-    {
-      description: 'Search GitHub repositories, code, issues, or users. Prefer for open source repos, code patterns, and real-world usage examples.',
-      inputSchema: schema,
+  return {
+    name: 'github_search',
+    description: 'Search GitHub repositories, code, issues, or users. Prefer for open source repos, code patterns, and real-world usage examples.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', minLength: 1, description: 'Search query' },
+        type: {
+          type: 'string',
+          enum: ['repositories', 'code', 'issues', 'users'],
+          default: 'repositories',
+          description: 'What to search',
+        },
+        language: { type: 'string', description: 'Filter by programming language' },
+        stars: { type: 'string', description: 'Star filter, e.g. ">100"' },
+        page: { type: 'integer', minimum: 1, default: 1, description: 'Result page' },
+      },
+      required: ['query'],
     },
-    async (args) => {
+    run: async (args) => {
       try {
-        const { query, type: searchType, language, stars, page } = schema.parse(args);
+        const query = validators.reqString(args, 'query');
+        const searchType = validators.optEnum(args, 'type', ['repositories', 'code', 'issues', 'users'] as const, 'repositories');
+        const language = validators.optString(args, 'language');
+        const stars = validators.optString(args, 'stars');
+        const page = validators.optInt(args, 'page', 1, 1);
         const q = buildQuery(query, language, stars);
 
         logger.info({ query: q, type: searchType }, 'GitHub search requested');
@@ -166,5 +175,5 @@ function buildQuery(query: string, language?: string, stars?: string): string {
         };
       }
     },
-  );
+  };
 }

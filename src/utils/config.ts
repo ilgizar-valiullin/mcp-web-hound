@@ -1,8 +1,7 @@
-import dotenv from 'dotenv';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ConfigSchema, type Config, type ProviderLimits } from './types.js';
+import { parseConfig, type Config, type ProviderLimits } from './types.js';
 import { CONFIG_DIR, DATA_DIR, ENV_PATH } from './env-path.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -25,7 +24,28 @@ if (!existsSync(ENV_PATH)) {
   }
 }
 
-dotenv.config({ path: ENV_PATH, quiet: true });
+// Minimal dotenv: KEY=VALUE lines, no override of existing vars (dotenv semantics).
+function loadEnvFile(path: string): void {
+  let content: string;
+  try {
+    content = readFileSync(path, 'utf-8');
+  } catch {
+    return;
+  }
+  for (const line of content.split('\n')) {
+    const t = line.trim();
+    if (!t || t.startsWith('#')) continue;
+    const eq = t.indexOf('=');
+    if (eq === -1) continue;
+    const key = t.slice(0, eq).trim();
+    const val = t.slice(eq + 1).trim();
+    if (!(key in process.env)) {
+      process.env[key] = val;
+    }
+  }
+}
+
+loadEnvFile(ENV_PATH);
 
 // Per-project override: CWD/.env can override individual keys from the main config.
 // Only keys that SERVER/.env originally set are overridable — MCP client env vars
@@ -96,7 +116,7 @@ export function buildProviderLimits(parsed: Config): Record<string, ProviderLimi
 }
 
 function loadConfig(): Config {
-  const parsed = ConfigSchema.parse(process.env);
+  const parsed = parseConfig(process.env);
 
   if (!existsSync(DATA_DIR)) {
     mkdirSync(DATA_DIR, { recursive: true });

@@ -5,9 +5,22 @@
 - **Node.js** >= 20
 - **npm** (comes with Node.js)
 
-## Quick Install (npx)
+## Quick Install (global, recommended)
 
-No install needed — npx fetches and runs the latest version automatically.
+One Node process per server (~70MB cold) instead of the npx relay chain
+(outer `px-cli` ~90MB + inner server). Distribution is still via npm.
+
+```bash
+npm i -g mcp-web-hound
+
+# Verify it works
+mcp-web-hound --help
+```
+
+## Quick Install (npx, zero-install fallback)
+
+No install needed — npx fetches and runs the latest version automatically
+(costs an extra ~90MB outer relay process while running).
 
 ```bash
 # Verify it works
@@ -47,7 +60,17 @@ Startpage, DuckDuckGo, Brave Web, and Bing work without keys (HTML scraping).
 
 ## Register in OpenCode
 
-Add to `~/.config/opencode/opencode.json` under `mcp`:
+Recommended (global install — single process):
+
+```json
+"web_search": {
+  "type": "local",
+  "command": ["mcp-web-hound"],
+  "enabled": true
+}
+```
+
+Fallback (npx — no install, extra relay process):
 
 ```json
 "web_search": {

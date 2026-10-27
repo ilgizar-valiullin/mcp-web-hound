@@ -1,7 +1,6 @@
-import { z } from 'zod';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
+import { validators, type ToolDef } from '../mcp/schemas.js';
 
 interface GitLabProject {
   id: number;
@@ -44,22 +43,29 @@ interface GitLabBlob {
   project: { id: number; name: string; path_with_namespace: string; web_url: string };
 }
 
-export function registerGitLabSearchTool(server: McpServer): void {
-  const schema = z.object({
-    query: z.string().min(1, 'Query cannot be empty'),
-    scope: z.enum(['projects', 'issues', 'merge_requests', 'blobs']).default('projects'),
-    page: z.number().int().min(1).default(1),
-  });
-
-  server.registerTool(
-    'gitlab_search',
-    {
-      description: 'Search GitLab projects, issues, merge requests, or code (blobs). Prefer for GitLab repos, code patterns, and real-world usage examples.',
-      inputSchema: schema,
+export function makeGitLabSearchTool(): ToolDef {
+  return {
+    name: 'gitlab_search',
+    description: 'Search GitLab projects, issues, merge requests, or code (blobs). Prefer for GitLab repos, code patterns, and real-world usage examples.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', minLength: 1, description: 'Search query' },
+        scope: {
+          type: 'string',
+          enum: ['projects', 'issues', 'merge_requests', 'blobs'],
+          default: 'projects',
+          description: 'What to search',
+        },
+        page: { type: 'integer', minimum: 1, default: 1, description: 'Result page' },
+      },
+      required: ['query'],
     },
-    async (args) => {
+    run: async (args) => {
       try {
-        const { query, scope, page } = schema.parse(args);
+        const query = validators.reqString(args, 'query');
+        const scope = validators.optEnum(args, 'scope', ['projects', 'issues', 'merge_requests', 'blobs'] as const, 'projects');
+        const page = validators.optInt(args, 'page', 1, 1);
 
         logger.info({ query, scope }, 'GitLab search requested');
 
@@ -156,5 +162,5 @@ export function registerGitLabSearchTool(server: McpServer): void {
         };
       }
     },
-  );
+  };
 }

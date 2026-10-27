@@ -6,7 +6,7 @@ import process, { stdin, stdout } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 import { emitKeypressEvents } from 'node:readline';
-import { ConfigSchema } from '../utils/types.js';
+import { FIELD_DEFS } from '../utils/types.js';
 import { CONFIG_DIR, ENV_PATH } from '../utils/env-path.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -114,29 +114,11 @@ function sectionFor(key: string): Section {
   return { key: 'other', label: 'Other', description: '', match: () => false };
 }
 
-function typeName(t: any): string {
-  return t?._def?.typeName ?? t?.constructor?.name ?? '';
-}
-
-function unwrapType(type: any): { fieldType: FieldType; enumValues?: string[] } {
-  const tn = typeName(type);
-  if (tn === 'ZodDefault' || tn === 'ZodOptional' || tn === 'ZodEffects' || tn === 'ZodPipe') {
-    return unwrapType(type._def.innerType ?? type._def.type ?? type._def.in);
-  }
-  if (tn === 'ZodBoolean') return { fieldType: 'boolean' };
-  if (tn === 'ZodNumber') return { fieldType: 'number' };
-  if (tn === 'ZodString') return { fieldType: 'string' };
-  if (tn === 'ZodEnum') {
-    const values = type._def.values ?? (type._def.entries ? Object.values(type._def.entries) : undefined);
-    if (values) return { fieldType: 'enum', enumValues: values as string[] };
-    return { fieldType: 'string' };
-  }
-  if (tn === 'ZodUnion') {
-    const opts = type._def.options as any[];
-    if (opts.some((o: any) => typeName(o) === 'ZodBoolean')) return { fieldType: 'boolean' };
-    if (opts.some((o: any) => typeName(o) === 'ZodNumber')) return { fieldType: 'number' };
-    return { fieldType: 'string' };
-  }
+function fieldTypeOf(kind: string): { fieldType: FieldType; enumValues?: string[] } {
+  if (kind === 'boolean') return { fieldType: 'boolean' };
+  if (kind === 'number') return { fieldType: 'number' };
+  if (kind === 'loglevel') return { fieldType: 'enum', enumValues: ['debug', 'info', 'warn', 'error'] };
+  if (kind === 'execmode') return { fieldType: 'enum', enumValues: ['parallel', 'sequential'] };
   return { fieldType: 'string' };
 }
 
@@ -150,19 +132,12 @@ interface FieldDef {
 }
 
 function buildFields(): FieldDef[] {
-  const shape = ConfigSchema.shape as Record<string, any>;
   const fields: FieldDef[] = [];
-  for (const key of Object.keys(shape)) {
-    const type: any = shape[key];
-    const description: string = type.description ?? '';
-    const { fieldType, enumValues } = unwrapType(type);
-    let dv: any = type._def.defaultValue;
-    if (dv === undefined) {
-      const inner = type._def.innerType;
-      if (inner) dv = inner._def.defaultValue;
-    }
+  for (const def of FIELD_DEFS) {
+    const { fieldType, enumValues } = fieldTypeOf(def.kind);
+    const dv = def.default;
     const defaultRaw = dv === undefined || dv === null ? '' : fieldType === 'boolean' ? (dv ? 'true' : 'false') : String(dv);
-    fields.push({ key, description, section: sectionFor(key).key, fieldType, defaultRaw, enumValues });
+    fields.push({ key: def.key, description: def.description, section: sectionFor(def.key).key, fieldType, defaultRaw, enumValues });
   }
   fields.sort((a, b) => {
     const ia = SECTIONS.findIndex(s => s.key === a.section);

@@ -1,17 +1,32 @@
-import { z } from 'zod';
-
 /**
  * Shared Types for MCP Web Hound Server
  */
 
-// --- Input Schemas ---
+// --- Input Schemas (zero-dependency, zod-compatible facades) ---
 
-export const SearchRequestSchema = z.object({
-  query: z.string().min(1, "Query cannot be empty"),
-  intent: z.enum(["web", "docs", "github", "news"]).default("web"),
-});
+export interface SearchRequest {
+  query: string;
+  intent: 'web' | 'docs' | 'github' | 'news';
+}
 
-export type SearchRequest = z.infer<typeof SearchRequestSchema>;
+const SEARCH_INTENTS = ['web', 'docs', 'github', 'news'] as const;
+
+export const SearchRequestSchema = {
+  parse(data: unknown): SearchRequest {
+    const d = data as Record<string, unknown> | null;
+    if (!d || typeof d !== 'object' || Array.isArray(d)) {
+      throw new Error('Search request must be an object');
+    }
+    if (typeof d.query !== 'string' || d.query.length < 1) {
+      throw new Error('Query cannot be empty');
+    }
+    const intent = d.intent === undefined ? 'web' : d.intent;
+    if (typeof intent !== 'string' || !(SEARCH_INTENTS as readonly string[]).includes(intent)) {
+      throw new Error(`Invalid intent: ${String(d.intent)}`);
+    }
+    return { query: d.query, intent: intent as SearchRequest['intent'] };
+  },
+};
 
 // --- Search Models ---
 
@@ -221,164 +236,208 @@ export interface SearchLogEntry {
 }
 
 // --- Config ---
-// The single source for all configuration.
-// Add `.describe()` to user-facing fields for automatic docs/help/logging.
+// The single source for all configuration (zero-dependency).
+// FIELD_DEFS drives parsing, docs, configure-TUI and status help.
 
-export const ConfigSchema = z.object({
-  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info')
-    .describe('Logging verbosity'),
-  DB_FILENAME: z.string().default('search.db')
-    .describe('SQLite database file name'),
+export type FieldKind = 'string' | 'boolean' | 'number' | 'optional-string' | 'loglevel' | 'execmode';
 
-  // --- Providers (free, no key) ---
-  DDG_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
-    .describe('Enable DuckDuckGo search (free, no key)'),
-  BING_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
-    .describe('Enable Bing search (free, no key)'),
-  STARTPAGE_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
-    .describe('Enable Startpage / Google mirror (free, no key)'),
-  BRAVE_WEB_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
-    .describe('Enable Brave Web HTML scrape (free, no key)'),
+export interface FieldDef {
+  key: string;
+  kind: FieldKind;
+  default: string | number | boolean | undefined;
+  description: string;
+}
 
-  // --- API keys (premium providers) ---
-  BRAVE_API_KEY: z.string().optional()
-    .describe('API key for Brave Search API (2000 queries/month free)'),
-  BRAVE_DAILY_LIMIT: z.number().or(z.string().transform(Number)).default(60)
-    .describe('Max Brave Search API queries per day'),
-  TAVILY_API_KEY: z.string().optional()
-    .describe('API key for Tavily Search (1000 queries/month free)'),
-  TAVILY_DAILY_LIMIT: z.number().or(z.string().transform(Number)).default(30)
-    .describe('Max Tavily queries per day'),
-  EXA_API_KEY: z.string().optional()
-    .describe('API key for Exa Search (trial 1000 queries)'),
-  FIRECRAWL_API_KEY: z.string().optional()
-    .describe('API key for Firecrawl (trial 500 credits)'),
+export interface Config {
+  LOG_LEVEL: 'debug' | 'info' | 'warn' | 'error';
+  DB_FILENAME: string;
+  DDG_ENABLED: boolean;
+  BING_ENABLED: boolean;
+  STARTPAGE_ENABLED: boolean;
+  BRAVE_WEB_ENABLED: boolean;
+  BRAVE_API_KEY?: string;
+  BRAVE_DAILY_LIMIT: number;
+  TAVILY_API_KEY?: string;
+  TAVILY_DAILY_LIMIT: number;
+  EXA_API_KEY?: string;
+  FIRECRAWL_API_KEY?: string;
+  GITHUB_TOKEN?: string;
+  GITLAB_TOKEN?: string;
+  PROVIDER_ORDER: string;
+  MAX_PARALLEL_PROVIDERS: number;
+  PROVIDER_EXECUTION_MODE: 'parallel' | 'sequential';
+  MAX_RESULTS_AFTER_RERANK: number;
+  SEARCH_TIMEOUT_MS: number;
+  BUDGET_MAX_SEARCHES: number;
+  BUDGET_MAX_FETCHES: number;
+  BUDGET_WINDOW_MINUTES: number;
+  CACHE_MAX_SIZE_MB: number;
+  CACHE_EVICTION_INTERVAL_MIN: number;
+  CACHE_TTL_MINUTES: number;
+  SEMANTIC_ENABLED: boolean;
+  EMBEDDING_MODEL: string;
+  EMBEDDING_DIMENSION: number;
+  SEMANTIC_THRESHOLD: number;
+  INTENT_CLASSIFIER_MODEL: string;
+  MODEL_IDLE_TIMEOUT_SEC: number;
+  MODEL_WORKER: boolean;
+  MODEL_PRELOAD: boolean;
+  RERANK_ENABLED: boolean;
+  SEARCH_LOG_ENABLED: boolean;
+  SESSION_DEDUP_WINDOW_MINUTES: number;
+  SESSION_DEDUP_STRETCH_MINUTES: number;
+  DDG_DELAY_MS: number;
+  DDG_MAX_PER_MINUTE: number;
+  DDG_RESULTS_PER_PAGE: number;
+  DDG_MAX_PAGES: number;
+  BING_RESULTS_PER_PAGE: number;
+  BING_MAX_PAGES: number;
+  DDG_RPM: number;
+  DDG_RPD: number;
+  DDG_RPMONTH: number;
+  BING_RPM: number;
+  BING_RPD: number;
+  BING_RPMONTH: number;
+  STARTPAGE_RPM: number;
+  STARTPAGE_RPD: number;
+  STARTPAGE_RPMONTH: number;
+  BRAVE_RPM: number;
+  BRAVE_RPD: number;
+  BRAVE_RPMONTH: number;
+  BRAVE_WEB_RPM: number;
+  BRAVE_WEB_RPD: number;
+  BRAVE_WEB_RPMONTH: number;
+  TAVILY_RPM: number;
+  TAVILY_RPD: number;
+  TAVILY_RPMONTH: number;
+  EXA_RPM: number;
+  EXA_RPD: number;
+  EXA_RPMONTH: number;
+  FIRECRAWL_RPM: number;
+  FIRECRAWL_RPD: number;
+  FIRECRAWL_RPMONTH: number;
+}
 
-  // --- Tokens ---
-  GITHUB_TOKEN: z.string().optional()
-    .describe('GitHub personal access token (optional, 60 req/hr without)'),
-  GITLAB_TOKEN: z.string().optional()
-    .describe('GitLab personal access token with read_api scope'),
+export const FIELD_DEFS: FieldDef[] = [
+  { key: 'LOG_LEVEL', kind: 'loglevel', default: 'info', description: 'Logging verbosity' },
+  { key: 'DB_FILENAME', kind: 'string', default: 'search.db', description: 'SQLite database file name' },
+  { key: 'DDG_ENABLED', kind: 'boolean', default: true, description: 'Enable DuckDuckGo search (free, no key)' },
+  { key: 'BING_ENABLED', kind: 'boolean', default: true, description: 'Enable Bing search (free, no key)' },
+  { key: 'STARTPAGE_ENABLED', kind: 'boolean', default: true, description: 'Enable Startpage / Google mirror (free, no key)' },
+  { key: 'BRAVE_WEB_ENABLED', kind: 'boolean', default: true, description: 'Enable Brave Web HTML scrape (free, no key)' },
+  { key: 'BRAVE_API_KEY', kind: 'optional-string', default: undefined, description: 'API key for Brave Search API (2000 queries/month free)' },
+  { key: 'BRAVE_DAILY_LIMIT', kind: 'number', default: 60, description: 'Max Brave Search API queries per day' },
+  { key: 'TAVILY_API_KEY', kind: 'optional-string', default: undefined, description: 'API key for Tavily Search (1000 queries/month free)' },
+  { key: 'TAVILY_DAILY_LIMIT', kind: 'number', default: 30, description: 'Max Tavily queries per day' },
+  { key: 'EXA_API_KEY', kind: 'optional-string', default: undefined, description: 'API key for Exa Search (trial 1000 queries)' },
+  { key: 'FIRECRAWL_API_KEY', kind: 'optional-string', default: undefined, description: 'API key for Firecrawl (trial 500 credits)' },
+  { key: 'GITHUB_TOKEN', kind: 'optional-string', default: undefined, description: 'GitHub personal access token (optional, 60 req/hr without)' },
+  { key: 'GITLAB_TOKEN', kind: 'optional-string', default: undefined, description: 'GitLab personal access token with read_api scope' },
+  { key: 'PROVIDER_ORDER', kind: 'string', default: 'startpage,ddg,brave_web,bing,brave_api,tavily,exa,firecrawl', description: 'Comma-separated provider priority list (tried top to bottom)' },
+  { key: 'MAX_PARALLEL_PROVIDERS', kind: 'number', default: 2, description: 'Max providers to query simultaneously' },
+  { key: 'PROVIDER_EXECUTION_MODE', kind: 'execmode', default: 'parallel', description: 'Run providers in parallel or fall through one by one' },
+  { key: 'MAX_RESULTS_AFTER_RERANK', kind: 'number', default: 10, description: 'Max results returned after reranking' },
+  { key: 'SEARCH_TIMEOUT_MS', kind: 'number', default: 15000, description: 'Per-provider search timeout in milliseconds' },
+  { key: 'BUDGET_MAX_SEARCHES', kind: 'number', default: 15, description: 'Max searches allowed per budget window' },
+  { key: 'BUDGET_MAX_FETCHES', kind: 'number', default: 30, description: 'Max page fetches allowed per budget window' },
+  { key: 'BUDGET_WINDOW_MINUTES', kind: 'number', default: 30, description: 'Budget window duration in minutes' },
+  { key: 'CACHE_MAX_SIZE_MB', kind: 'number', default: 500, description: 'Max cache database size in MB (0 = unlimited)' },
+  { key: 'CACHE_EVICTION_INTERVAL_MIN', kind: 'number', default: 30, description: 'Interval between automatic cache size checks (minutes)' },
+  { key: 'CACHE_TTL_MINUTES', kind: 'number', default: 1440, description: 'Cache entry time-to-live in minutes (1440 = 24h)' },
+  { key: 'SEMANTIC_ENABLED', kind: 'boolean', default: true, description: 'Enable semantic search with embeddings (~120MB model download)' },
+  { key: 'EMBEDDING_MODEL', kind: 'string', default: 'multilingual-e5-small', description: 'HuggingFace model for text embeddings' },
+  { key: 'EMBEDDING_DIMENSION', kind: 'number', default: 384, description: 'Embedding vector dimension (must match model output)' },
+  { key: 'SEMANTIC_THRESHOLD', kind: 'number', default: 0.92, description: 'Cosine similarity threshold for semantic dedup' },
+  { key: 'INTENT_CLASSIFIER_MODEL', kind: 'string', default: 'Xenova/nli-deberta-v3-xsmall', description: 'HuggingFace model for NLI-based intent classification' },
+  { key: 'MODEL_IDLE_TIMEOUT_SEC', kind: 'number', default: 5, description: 'Unload hot worker (DB/vec/router/models) after N seconds idle (0 = never unload, hot start ~1-2s)' },
+  { key: 'MODEL_WORKER', kind: 'boolean', default: true, description: 'Run ONNX models in a private child process killed on idle (OS fully reclaims RAM)' },
+  { key: 'MODEL_PRELOAD', kind: 'boolean', default: false, description: 'Preload embedding model at startup (true = hot start, false = lazy cold start)' },
+  { key: 'RERANK_ENABLED', kind: 'boolean', default: true, description: 'Enable cross-encoder reranking for result relevance' },
+  { key: 'SEARCH_LOG_ENABLED', kind: 'boolean', default: false, description: 'Log search queries, candidates, and reranker scores for ML training dataset' },
+  { key: 'SESSION_DEDUP_WINDOW_MINUTES', kind: 'number', default: 5, description: 'Window in minutes for deduplicating identical queries' },
+  { key: 'SESSION_DEDUP_STRETCH_MINUTES', kind: 'number', default: 0, description: 'Extra minutes to extend dedup window on new activity' },
+  { key: 'DDG_DELAY_MS', kind: 'number', default: 1000, description: 'Delay between DuckDuckGo requests in milliseconds' },
+  { key: 'DDG_MAX_PER_MINUTE', kind: 'number', default: 10, description: 'Max DuckDuckGo requests per minute' },
+  { key: 'DDG_RESULTS_PER_PAGE', kind: 'number', default: 10, description: 'DuckDuckGo results per page' },
+  { key: 'DDG_MAX_PAGES', kind: 'number', default: 1, description: 'Max DuckDuckGo pages to scrape' },
+  { key: 'BING_RESULTS_PER_PAGE', kind: 'number', default: 10, description: 'Bing results per page' },
+  { key: 'BING_MAX_PAGES', kind: 'number', default: 1, description: 'Max Bing pages to scrape' },
+  { key: 'DDG_RPM', kind: 'number', default: 10, description: 'DuckDuckGo max requests per minute' },
+  { key: 'DDG_RPD', kind: 'number', default: 200, description: 'DuckDuckGo max requests per day' },
+  { key: 'DDG_RPMONTH', kind: 'number', default: 6000, description: 'DuckDuckGo max requests per month' },
+  { key: 'BING_RPM', kind: 'number', default: 15, description: 'Bing max requests per minute' },
+  { key: 'BING_RPD', kind: 'number', default: 60, description: 'Bing max requests per day' },
+  { key: 'BING_RPMONTH', kind: 'number', default: 1800, description: 'Bing max requests per month' },
+  { key: 'STARTPAGE_RPM', kind: 'number', default: 10, description: 'Startpage max requests per minute' },
+  { key: 'STARTPAGE_RPD', kind: 'number', default: 200, description: 'Startpage max requests per day' },
+  { key: 'STARTPAGE_RPMONTH', kind: 'number', default: 6000, description: 'Startpage max requests per month' },
+  { key: 'BRAVE_RPM', kind: 'number', default: 15, description: 'Brave Search API max requests per minute' },
+  { key: 'BRAVE_RPD', kind: 'number', default: 60, description: 'Brave Search API max requests per day' },
+  { key: 'BRAVE_RPMONTH', kind: 'number', default: 2000, description: 'Brave Search API max requests per month' },
+  { key: 'BRAVE_WEB_RPM', kind: 'number', default: 10, description: 'Brave Web scrape max requests per minute' },
+  { key: 'BRAVE_WEB_RPD', kind: 'number', default: 100, description: 'Brave Web scrape max requests per day' },
+  { key: 'BRAVE_WEB_RPMONTH', kind: 'number', default: 6000, description: 'Brave Web scrape max requests per month' },
+  { key: 'TAVILY_RPM', kind: 'number', default: 10, description: 'Tavily max requests per minute' },
+  { key: 'TAVILY_RPD', kind: 'number', default: 30, description: 'Tavily max requests per day' },
+  { key: 'TAVILY_RPMONTH', kind: 'number', default: 1000, description: 'Tavily max requests per month' },
+  { key: 'EXA_RPM', kind: 'number', default: 10, description: 'Exa max requests per minute' },
+  { key: 'EXA_RPD', kind: 'number', default: 30, description: 'Exa max requests per day' },
+  { key: 'EXA_RPMONTH', kind: 'number', default: 1000, description: 'Exa max requests per month' },
+  { key: 'FIRECRAWL_RPM', kind: 'number', default: 5, description: 'Firecrawl max requests per minute' },
+  { key: 'FIRECRAWL_RPD', kind: 'number', default: 15, description: 'Firecrawl max requests per day' },
+  { key: 'FIRECRAWL_RPMONTH', kind: 'number', default: 500, description: 'Firecrawl max requests per month' },
+];
 
-  // --- Behavior ---
-  PROVIDER_ORDER: z.string().default('startpage,ddg,brave_web,bing,brave_api,tavily,exa,firecrawl')
-    .describe('Comma-separated provider priority list (tried top to bottom)'),
-  MAX_PARALLEL_PROVIDERS: z.number().or(z.string().transform(Number)).default(2)
-    .describe('Max providers to query simultaneously'),
-  PROVIDER_EXECUTION_MODE: z.enum(['parallel', 'sequential']).default('parallel')
-    .describe('Run providers in parallel or fall through one by one'),
-  MAX_RESULTS_AFTER_RERANK: z.number().or(z.string().transform(Number)).default(10)
-    .describe('Max results returned after reranking'),
-  SEARCH_TIMEOUT_MS: z.number().or(z.string().transform(Number)).default(15000)
-    .describe('Per-provider search timeout in milliseconds'),
+/** Parse raw (stringly) env into Config. Same coercion semantics as the old zod schema. */
+export function parseConfig(input: Record<string, unknown>): Config {
+  const out: Record<string, unknown> = {};
+  for (const def of FIELD_DEFS) {
+    const raw = input[def.key];
+    if (raw === undefined) {
+      out[def.key] = def.default;
+      continue;
+    }
+    switch (def.kind) {
+      case 'boolean':
+        if (typeof raw === 'boolean') out[def.key] = raw;
+        else if (typeof raw === 'string') out[def.key] = raw === 'true';
+        else throw new Error(`Invalid boolean for ${def.key}`);
+        break;
+      case 'number':
+        if (typeof raw === 'number') out[def.key] = raw;
+        else if (typeof raw === 'string') out[def.key] = Number(raw);
+        else throw new Error(`Invalid number for ${def.key}`);
+        break;
+      case 'string':
+        if (typeof raw !== 'string') throw new Error(`Invalid string for ${def.key}`);
+        out[def.key] = raw;
+        break;
+      case 'optional-string':
+        if (typeof raw !== 'string') throw new Error(`Invalid string for ${def.key}`);
+        out[def.key] = raw;
+        break;
+      case 'loglevel':
+        if (typeof raw !== 'string' || !['debug', 'info', 'warn', 'error'].includes(raw)) {
+          throw new Error(`Invalid LOG_LEVEL: ${String(raw)}`);
+        }
+        out[def.key] = raw;
+        break;
+      case 'execmode':
+        if (raw !== 'parallel' && raw !== 'sequential') {
+          throw new Error(`Invalid PROVIDER_EXECUTION_MODE: ${String(raw)}`);
+        }
+        out[def.key] = raw;
+        break;
+    }
+  }
+  return out as unknown as Config;
+}
 
-  // --- Budget limits ---
-  BUDGET_MAX_SEARCHES: z.number().or(z.string().transform(Number)).default(15)
-    .describe('Max searches allowed per budget window'),
-  BUDGET_MAX_FETCHES: z.number().or(z.string().transform(Number)).default(30)
-    .describe('Max page fetches allowed per budget window'),
-  BUDGET_WINDOW_MINUTES: z.number().or(z.string().transform(Number)).default(30)
-    .describe('Budget window duration in minutes'),
-
-  // --- Cache ---
-  CACHE_MAX_SIZE_MB: z.number().or(z.string().transform(Number)).default(500)
-    .describe('Max cache database size in MB (0 = unlimited)'),
-  CACHE_EVICTION_INTERVAL_MIN: z.number().or(z.string().transform(Number)).default(30)
-    .describe('Interval between automatic cache size checks (minutes)'),
-  CACHE_TTL_MINUTES: z.number().or(z.string().transform(Number)).default(1440)
-    .describe('Cache entry time-to-live in minutes (1440 = 24h)'),
-
-  // --- Features ---
-  SEMANTIC_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
-    .describe('Enable semantic search with embeddings (~120MB model download)'),
-  EMBEDDING_MODEL: z.string().default('multilingual-e5-small')
-    .describe('HuggingFace model for text embeddings'),
-  EMBEDDING_DIMENSION: z.number().or(z.string().transform(Number)).default(384)
-    .describe('Embedding vector dimension (must match model output)'),
-  SEMANTIC_THRESHOLD: z.number().or(z.string().transform(Number)).default(0.92)
-    .describe('Cosine similarity threshold for semantic dedup'),
-  INTENT_CLASSIFIER_MODEL: z.string().default('Xenova/nli-deberta-v3-xsmall')
-    .describe('HuggingFace model for NLI-based intent classification'),
-  MODEL_IDLE_TIMEOUT_SEC: z.number().or(z.string().transform(Number)).default(25)
-    .describe('Unload ONNX models after N seconds idle (0 = never unload, cold-start saves ~350MB RAM)'),
-  MODEL_WORKER: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
-    .describe('Run ONNX models in a private child process killed on idle (OS fully reclaims RAM)'),
-  MODEL_PRELOAD: z.boolean().or(z.string().transform(v => v === 'true')).default(false)
-    .describe('Preload embedding model at startup (true = hot start, false = lazy cold start)'),
-  RERANK_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(true)
-    .describe('Enable cross-encoder reranking for result relevance'),
-  SEARCH_LOG_ENABLED: z.boolean().or(z.string().transform(v => v === 'true')).default(false)
-    .describe('Log search queries, candidates, and reranker scores for ML training dataset'),
-
-  // --- Session ---
-  SESSION_DEDUP_WINDOW_MINUTES: z.number().or(z.string().transform(Number)).default(5)
-    .describe('Window in minutes for deduplicating identical queries'),
-  SESSION_DEDUP_STRETCH_MINUTES: z.number().or(z.string().transform(Number)).default(0)
-    .describe('Extra minutes to extend dedup window on new activity'),
-
-  // --- Provider tuning ---
-  DDG_DELAY_MS: z.number().or(z.string().transform(Number)).default(1000)
-    .describe('Delay between DuckDuckGo requests in milliseconds'),
-  DDG_MAX_PER_MINUTE: z.number().or(z.string().transform(Number)).default(10)
-    .describe('Max DuckDuckGo requests per minute'),
-  DDG_RESULTS_PER_PAGE: z.number().or(z.string().transform(Number)).default(10)
-    .describe('DuckDuckGo results per page'),
-  DDG_MAX_PAGES: z.number().or(z.string().transform(Number)).default(1)
-    .describe('Max DuckDuckGo pages to scrape'),
-  BING_RESULTS_PER_PAGE: z.number().or(z.string().transform(Number)).default(10)
-    .describe('Bing results per page'),
-  BING_MAX_PAGES: z.number().or(z.string().transform(Number)).default(1)
-    .describe('Max Bing pages to scrape'),
-
-  // --- Per-provider rate limits ---
-  DDG_RPM: z.number().or(z.string().transform(Number)).default(10)
-    .describe('DuckDuckGo max requests per minute'),
-  DDG_RPD: z.number().or(z.string().transform(Number)).default(200)
-    .describe('DuckDuckGo max requests per day'),
-  DDG_RPMONTH: z.number().or(z.string().transform(Number)).default(6000)
-    .describe('DuckDuckGo max requests per month'),
-  BING_RPM: z.number().or(z.string().transform(Number)).default(15)
-    .describe('Bing max requests per minute'),
-  BING_RPD: z.number().or(z.string().transform(Number)).default(60)
-    .describe('Bing max requests per day'),
-  BING_RPMONTH: z.number().or(z.string().transform(Number)).default(1800)
-    .describe('Bing max requests per month'),
-  STARTPAGE_RPM: z.number().or(z.string().transform(Number)).default(10)
-    .describe('Startpage max requests per minute'),
-  STARTPAGE_RPD: z.number().or(z.string().transform(Number)).default(200)
-    .describe('Startpage max requests per day'),
-  STARTPAGE_RPMONTH: z.number().or(z.string().transform(Number)).default(6000)
-    .describe('Startpage max requests per month'),
-  BRAVE_RPM: z.number().or(z.string().transform(Number)).default(15)
-    .describe('Brave Search API max requests per minute'),
-  BRAVE_RPD: z.number().or(z.string().transform(Number)).default(60)
-    .describe('Brave Search API max requests per day'),
-  BRAVE_RPMONTH: z.number().or(z.string().transform(Number)).default(2000)
-    .describe('Brave Search API max requests per month'),
-  BRAVE_WEB_RPM: z.number().or(z.string().transform(Number)).default(10)
-    .describe('Brave Web scrape max requests per minute'),
-  BRAVE_WEB_RPD: z.number().or(z.string().transform(Number)).default(100)
-    .describe('Brave Web scrape max requests per day'),
-  BRAVE_WEB_RPMONTH: z.number().or(z.string().transform(Number)).default(6000)
-    .describe('Brave Web scrape max requests per month'),
-  TAVILY_RPM: z.number().or(z.string().transform(Number)).default(10)
-    .describe('Tavily max requests per minute'),
-  TAVILY_RPD: z.number().or(z.string().transform(Number)).default(30)
-    .describe('Tavily max requests per day'),
-  TAVILY_RPMONTH: z.number().or(z.string().transform(Number)).default(1000)
-    .describe('Tavily max requests per month'),
-  EXA_RPM: z.number().or(z.string().transform(Number)).default(10)
-    .describe('Exa max requests per minute'),
-  EXA_RPD: z.number().or(z.string().transform(Number)).default(30)
-    .describe('Exa max requests per day'),
-  EXA_RPMONTH: z.number().or(z.string().transform(Number)).default(1000)
-    .describe('Exa max requests per month'),
-  FIRECRAWL_RPM: z.number().or(z.string().transform(Number)).default(5)
-    .describe('Firecrawl max requests per minute'),
-  FIRECRAWL_RPD: z.number().or(z.string().transform(Number)).default(15)
-    .describe('Firecrawl max requests per day'),
-  FIRECRAWL_RPMONTH: z.number().or(z.string().transform(Number)).default(500)
-    .describe('Firecrawl max requests per month'),
-});
-
-export type Config = z.infer<typeof ConfigSchema>;
+/** zod-compatible facade: parse() with identical defaults/coercion. */
+export const ConfigSchema = {
+  parse(input: unknown): Config {
+    const d = (input ?? {}) as Record<string, unknown>;
+    if (typeof d !== 'object' || Array.isArray(d)) throw new Error('Config must be an object');
+    return parseConfig(d);
+  },
+};

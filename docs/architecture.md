@@ -32,15 +32,15 @@ flowchart TD
 
 ## System Layers
 
-### 1. MCP Transport Layer (`src/index.ts`)
+### 1. MCP Transport Layer (`src/index.ts` + `src/mcp/`)
 
-Entry point. Registers 4 tools via `@modelcontextprotocol/sdk`: `web_search`, `github_search`, `gitlab_search`, `status`. Handles JSON-RPC over stdio.
+Entry point. Hand-rolled minimal MCP over stdio (newline + Content-Length framing, zero dependencies — no `@modelcontextprotocol/sdk`): `initialize` (protocol negotiation, `instructions`), `ping`, `tools/list` (plain JSON schemas from `src/mcp/schemas.ts`), `tools/call` routed to handlers. Tools: `web_search`, `status`, `github_search`, `gitlab_search`, `report_search_usage`.
 
 **Responsibilities:**
 - Tool registration
-- Input validation (zod)
+- Manual input validation (no zod)
 - Response serialization
-- Top-level error handling
+- Top-level error handling (tool throw → `isError` result, never crash)
 
 ### 2. Budget Manager (`src/limits/budget-manager.ts`)
 

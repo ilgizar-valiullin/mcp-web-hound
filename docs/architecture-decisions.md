@@ -192,7 +192,7 @@ Honestly though — these are just all the free ones I could find :D
 | Component | Resource Requirement | Overhead / Behavior |
 |-----------|----------------------|---------------------|
 | **Disk Space** | ~240 MB | Local ONNX cache for embedding & NLI models. |
-| **Memory (RAM)** | ~250-300 MB | Node.js process baseline + lazy-loaded models in V8 heap. |
+| **Memory (RAM)** | ~22 MB cold main + transient hot | Thin main (no SDK/zod/pino, no native in graph); heavy stack + models live in a hot child, killed on 5s idle. Measured: 22.5 MB @75s idle, hot 80 MB while serving, 0 after kill. |
 | **Inference Time** | 10–15ms / request | Executed entirely on CPU. Highly optimized for local execution. |
 
 ### Robustness

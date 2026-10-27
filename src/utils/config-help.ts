@@ -1,4 +1,4 @@
-import { ConfigSchema } from './types.js';
+import { FIELD_DEFS } from './types.js';
 import type { Config } from './types.js';
 
 type Category = 'provider_flag' | 'api_key' | 'token' | 'feature' | 'behavior' | 'limit';
@@ -13,12 +13,11 @@ function inferCategory(key: string): Category {
 }
 
 function getFields(config: Config) {
-  const shape = ConfigSchema.shape as Record<string, any>;
   const fields: Array<{ key: string; description: string; category: Category; value: unknown; isSet: boolean }> = [];
 
-  for (const key of Object.keys(shape)) {
-    const type = shape[key];
-    const description = type.description ?? '';
+  for (const def of FIELD_DEFS) {
+    const key = def.key;
+    const description = def.description ?? '';
     const value = config[key as keyof Config];
     fields.push({
       key,
@@ -74,15 +73,13 @@ export function getStartupSummary(config: Config): string[] {
 }
 
 export function getUnsetApiKeys(config: Config): Array<{ key: string; description: string }> {
-  const shape = ConfigSchema.shape as Record<string, any>;
   const result: Array<{ key: string; description: string }> = [];
 
-  for (const key of Object.keys(shape)) {
-    if (inferCategory(key) !== 'api_key') continue;
-    const value = config[key as keyof Config];
+  for (const def of FIELD_DEFS) {
+    if (inferCategory(def.key) !== 'api_key') continue;
+    const value = config[def.key as keyof Config];
     if (!value) {
-      const type = shape[key];
-      result.push({ key, description: type.description ?? '' });
+      result.push({ key: def.key, description: def.description ?? '' });
     }
   }
 
