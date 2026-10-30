@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ilgizar-valiullin.github.io/mcp-web-hound/sitemap.xml

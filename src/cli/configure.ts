@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 import { emitKeypressEvents } from 'node:readline';
 import { FIELD_DEFS } from '../utils/types.js';
+import { maskSecretValue } from '../utils/config-help.js';
 import { CONFIG_DIR, ENV_PATH } from '../utils/env-path.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -173,10 +174,8 @@ function currentValue(key: string, env: Record<string, string>, def: FieldDef): 
 }
 
 function mask(val: string, key: string): string {
-  if ((key.endsWith('_API_KEY') || key.endsWith('_TOKEN')) && val.length > 8) {
-    return val.slice(0, 4) + '****' + val.slice(-4);
-  }
-  return val || clr('(not set)', C.dim);
+  const masked = maskSecretValue(key, val);
+  return typeof masked === 'string' && masked.length > 0 ? masked : clr('(not set)', C.dim);
 }
 
 function parseInput(input: string, def: FieldDef): { value?: unknown; error?: string } {
@@ -678,7 +677,7 @@ function handleJsonMode(sub: string[]): void {
       description: f.description,
       type: f.fieldType,
       default: f.defaultRaw,
-      current: currentValue(f.key, env, f),
+      current: maskSecretValue(f.key, currentValue(f.key, env, f)),
       isSet: currentValue(f.key, env, f) !== f.defaultRaw,
       enumValues: f.enumValues ?? null,
       section: SECTIONS.find(s => s.key === f.section)?.label ?? f.section,

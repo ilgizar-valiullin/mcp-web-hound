@@ -85,3 +85,22 @@ export function getUnsetApiKeys(config: Config): Array<{ key: string; descriptio
 
   return result;
 }
+
+export function isSecretKey(key: string): boolean {
+  const category = inferCategory(key);
+  return category === 'api_key' || category === 'token';
+}
+
+/**
+ * Partially masks secret values for agent-facing output (status, configure).
+ * Non-secret and non-string values pass through untouched.
+ */
+export function maskSecretValue(key: string, value: unknown): unknown {
+  if (typeof value !== 'string' || !isSecretKey(key) || value.length === 0) {
+    return value;
+  }
+  if (value.length <= 8) {
+    return '****';
+  }
+  return `${value.slice(0, 4)}****${value.slice(-4)}`;
+}

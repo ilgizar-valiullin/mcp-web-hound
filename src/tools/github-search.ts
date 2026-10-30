@@ -1,5 +1,6 @@
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
+import { fetchWithRateLimitRetry } from './fetch-retry.js';
 import { validators, type ToolDef } from '../mcp/schemas.js';
 
 export function makeGitHubSearchTool(): ToolDef {
@@ -90,7 +91,11 @@ function buildQuery(query: string, language?: string, stars?: string): string {
           headers.Authorization = `Bearer ${config.GITHUB_TOKEN}`;
         }
 
-        const response = await fetch(url.toString(), { headers, signal: AbortSignal.timeout(15000) });
+        const response = await fetchWithRateLimitRetry(
+          url.toString(),
+          { headers, signal: AbortSignal.timeout(15000) },
+          'github_search',
+        );
 
         if (!response.ok) {
           const remaining = response.headers.get('X-RateLimit-Remaining') ?? '?';

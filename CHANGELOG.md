@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.12.2] - 2026-10-30
+
+### Fixed
+
+- `status` and `configure --json get` no longer expose full API keys/tokens — values are partially masked (`abcd****wxyz`).
+- `github_search` / `gitlab_search` retry on HTTP 429 and rate-limit 403 with truncated exponential backoff (honors `Retry-After`, capped at 5s).
+- `brave_web` provider is actually registered now (registry key was `brave`, but `PROVIDER_ORDER` uses `brave_web`) — it was silently skipped and missing from `status`.
+
+### Changed
+
+- `package.json`: `homepage` + expanded `keywords`; README badges and absolute repo/npm links (SEO).
+- `docs/`: landing page, `sitemap.xml`, `robots.txt` scaffold for GitHub Pages.
+- Tests: router registration, secret masking, fetch retry (15 new tests).
+
 ## [1.12.0] - 2026-10-28
 
 Cold-footprint rework: thin main + single hot worker, global install as the official path.

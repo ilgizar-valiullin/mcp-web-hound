@@ -1,5 +1,6 @@
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
+import { fetchWithRateLimitRetry } from './fetch-retry.js';
 import { validators, type ToolDef } from '../mcp/schemas.js';
 
 interface GitLabProject {
@@ -83,7 +84,11 @@ export function makeGitLabSearchTool(): ToolDef {
           headers['PRIVATE-TOKEN'] = config.GITLAB_TOKEN;
         }
 
-        const response = await fetch(url.toString(), { headers, signal: AbortSignal.timeout(15000) });
+        const response = await fetchWithRateLimitRetry(
+          url.toString(),
+          { headers, signal: AbortSignal.timeout(15000) },
+          'gitlab_search',
+        );
 
         if (!response.ok) {
           throw new Error(`GitLab API ${response.status}: ${response.statusText}`);

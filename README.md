@@ -1,6 +1,13 @@
 # MCP Web Hound
 
+[![npm version](https://img.shields.io/npm/v/mcp-web-hound.svg)](https://www.npmjs.com/package/mcp-web-hound)
+[![npm downloads](https://img.shields.io/npm/dm/mcp-web-hound.svg)](https://www.npmjs.com/package/mcp-web-hound)
+[![GitHub stars](https://img.shields.io/github/stars/ilgizar-valiullin/mcp-web-hound?style=social)](https://github.com/ilgizar-valiullin/mcp-web-hound)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 > Unified MCP search tools for AI agents — abstracts providers, caching, reranking, and rate limits behind a few simple tools.
+>
+> GitHub: <https://github.com/ilgizar-valiullin/mcp-web-hound> · npm: <https://www.npmjs.com/package/mcp-web-hound>
 
 > ⚠️ **Work in progress.** Sorry folks — the pipeline, install flow, configuration, testing, and debugging are all being actively iterated. Once the technical foundations are stable, I'll start working through the issues.
 

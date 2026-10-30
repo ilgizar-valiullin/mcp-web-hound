@@ -2,6 +2,7 @@ import { config } from '../utils/config.js';
 import { ENV_PATH } from '../utils/env-path.js';
 import { logger } from '../utils/logger.js';
 import { FIELD_DEFS } from '../utils/types.js';
+import { maskSecretValue } from '../utils/config-help.js';
 import type { HotStatusResult } from '../hot/protocol.js';
 import type { ToolDef } from '../mcp/schemas.js';
 import { readFileSync } from 'node:fs';
@@ -40,7 +41,7 @@ function getConfigHelp(): Array<{ key: string; category: string; description: st
       key,
       category: inferCategory(key),
       description,
-      value: config[key as keyof typeof config],
+      value: maskSecretValue(key, config[key as keyof typeof config]),
     });
   }
 

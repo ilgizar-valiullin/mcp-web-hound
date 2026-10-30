@@ -27,7 +27,7 @@ const PROVIDER_REGISTRY: Record<string, { factory: ProviderFactory; guard: () =>
       factory: () => new StartpageProvider(),
       guard: () => config.STARTPAGE_ENABLED,
     },
-  brave: {
+  brave_web: {
     factory: () => new BraveWebProvider(),
     guard: () => config.BRAVE_WEB_ENABLED,
   },

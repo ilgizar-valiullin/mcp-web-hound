@@ -1,7 +1,8 @@
 {
   "name": "mcp-web-hound",
-  "version": "1.12.1",
+  "version": "1.12.2",
   "description": "MCP Web Hound — unified web search, GitHub search, and GitLab search tools with caching, reranking, and rate limits",
+  "homepage": "https://github.com/ilgizar-valiullin/mcp-web-hound#readme",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -30,10 +31,15 @@
   },
   "keywords": [
     "mcp",
-    "search",
+    "mcp-server",
+    "model-context-protocol",
+    "web-search",
+    "github",
+    "gitlab",
     "ai",
+    "ai-agents",
     "agent",
-    "duckduckgo"
+    "search"
   ],
   "license": "MIT",
   "repository": {
