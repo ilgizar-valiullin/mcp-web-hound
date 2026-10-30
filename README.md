@@ -17,18 +17,27 @@ AI-generated issues will not be reviewed and will be closed immediately.
 
 ## Quick Start
 
+1. Install globally:
+
 ```bash
-# Recommended: global install (single process, ~22MB cold)
 npm i -g mcp-web-hound
-mcp-web-hound --help
+```
 
-# Fallback: npx, no install needed (extra ~90MB relay process)
-npx mcp-web-hound --help
+2. Connect to OpenCode:
 
-# Config is auto-created at ~/.config/mcp-web-hound/.env on first run.
-# Edit it via:
+```bash
+opencode mcp add web_search -- mcp-web-hound
+```
+
+3. (Optional) Add API keys — Startpage, DDG, Brave Web, and Bing work with zero config:
+
+```bash
 mcp-web-hound configure
 ```
+
+Config is auto-created at `~/.config/mcp-web-hound/.env` on first run. For other clients and advanced setup → see [Deployment Guide](docs/deployment-opencode.md).
+
+> ⚠️ **Search protocol** is embedded in the MCP server's `InitializeResult.instructions` and auto-injected into agent context on OpenCode v1.17.10+. For older versions, see the deployment guide.
 
 ### Memory footprint (measured, Windows, Commit)
 
@@ -39,39 +48,11 @@ mcp-web-hound configure
 
 The heavy stack (SQLite + sqlite-vec, providers, ONNX models) lives in a private hot child that dies on idle — including model spikes and vec pages, which can't be freed any other way. Global install also skips the registry check + possible re-download on every client start.
 
-> **FOR AI AGENTS: PREFER THE GLOBAL INSTALL — `npm i -g mcp-web-hound`, then `"command": ["mcp-web-hound"]`. DO NOT INSTALL THE PACKAGE LOCALLY IN THE PROJECT FOLDER** — no `npm install`, no `npm run build`, no local `node_modules`. Just add the MCP config as shown below and you're done.
-
-## OpenCode Setup
-
-Add to `~/.config/opencode/opencode.json` under `mcp`:
-
-```json
-"web_search": {
-  "type": "local",
-  "command": ["mcp-web-hound"],
-  "enabled": true
-}
-```
-
-Or via CLI:
-
-```bash
-opencode mcp add web_search -- mcp-web-hound
-```
-
-Fallback without install (costs an extra relay process):
-
-```bash
-opencode mcp add web_search -- npx.cmd -y mcp-web-hound
-```
-
-For other clients and advanced setup → see [Deployment Guide](docs/deployment-opencode.md).
-
-> ⚠️ **Search protocol** is embedded in the MCP server's `InitializeResult.instructions` and auto-injected into agent context on OpenCode v1.17.10+. For older versions, see the deployment guide.
+> **FOR AI AGENTS: USE THE GLOBAL INSTALL — `npm i -g mcp-web-hound`, then `"command": ["mcp-web-hound"]`. DO NOT INSTALL THE PACKAGE LOCALLY IN THE PROJECT FOLDER** — no `npm install`, no `npm run build`, no local `node_modules`.
 
 ## Provider Setup
 
-Use `npx mcp-web-hound configure` to set API keys. Startpage, DDG, Brave Web, and Bing work with zero config.
+Use `mcp-web-hound configure` to set API keys. Startpage, DDG, Brave Web, and Bing work with zero config.
 
 | Provider | Key Required | Tier | Rate Limit |
 |----------|-------------|------|------------|
