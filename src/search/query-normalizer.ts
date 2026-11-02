@@ -10,7 +10,7 @@ export function normalizeQuery(raw: string): string {
     .toLowerCase()
     .trim()
     .replace(/\s+/g, ' ')
-    .replace(/[^\w\s\-./:?=&]/g, '')
+    .replace(/[^\p{L}\p{N}\s\-./:?=&_]/gu, '')
     .trim();
 }
 

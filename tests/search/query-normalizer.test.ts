@@ -21,6 +21,22 @@ describe('normalizeQuery', () => {
   it('should handle empty string', () => {
     expect(normalizeQuery('')).toBe('');
   });
+
+  it('should preserve Cyrillic queries', () => {
+    expect(normalizeQuery('рецепты бразильских бургеров разные котлетки ингредиенты')).toBe(
+      'рецепты бразильских бургеров разные котлетки ингредиенты',
+    );
+  });
+
+  it('should preserve CJK and Arabic scripts', () => {
+    expect(normalizeQuery('北京烤鸭食谱')).toBe('北京烤鸭食谱');
+    expect(normalizeQuery('日本語 テスト')).toBe('日本語 テスト');
+    expect(normalizeQuery('مرحبا بالعالم')).toBe('مرحبا بالعالم');
+  });
+
+  it('should preserve mixed Latin and Cyrillic with numbers', () => {
+    expect(normalizeQuery('hello мир 123')).toBe('hello мир 123');
+  });
 });
 
 describe('generateCacheKey', () => {
