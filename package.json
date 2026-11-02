@@ -1,6 +1,6 @@
 {
   "name": "mcp-web-hound",
-  "version": "1.12.2",
+  "version": "1.12.3",
   "description": "MCP Web Hound — unified web search, GitHub search, and GitLab search tools with caching, reranking, and rate limits",
   "homepage": "https://github.com/ilgizar-valiullin/mcp-web-hound#readme",
   "type": "module",
